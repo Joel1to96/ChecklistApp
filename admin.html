@@ -29,6 +29,7 @@
             flex-grow: 1; 
             padding: 10px; 
             font-size: 16px; 
+            margin-right: 10px;
         }
         .task-input button, .logout-button { 
             padding: 10px 20px; 
@@ -81,7 +82,50 @@
     <ul id="taskList" class="task-list"></ul>
 
     <script>
-        // ... (el resto del script permanece igual)
+        let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+
+        function renderTasks() {
+            const taskList = document.getElementById('taskList');
+            taskList.innerHTML = '';
+            tasks.forEach((task, index) => {
+                const li = document.createElement('li');
+                li.className = 'task-item';
+                li.innerHTML = `
+                    <span>${task.text}</span>
+                    <span>Asignado a: ${task.assignedTo}</span>
+                    <button onclick="deleteTask(${index})">Eliminar</button>
+                `;
+                taskList.appendChild(li);
+            });
+            saveTasks();
+        }
+
+        function addTask() {
+            const newTaskInput = document.getElementById('newTask');
+            const assignToSelect = document.getElementById('assignTo');
+            const text = newTaskInput.value.trim();
+            const assignedTo = assignToSelect.value;
+            if (text) {
+                const newTask = {
+                    id: Date.now().toString(),
+                    text: text,
+                    assignedTo: assignedTo,
+                    completed: false
+                };
+                tasks.push(newTask);
+                newTaskInput.value = '';
+                renderTasks();
+            }
+        }
+
+        function deleteTask(index) {
+            tasks.splice(index, 1);
+            renderTasks();
+        }
+
+        function saveTasks() {
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+        }
 
         function logout() {
             sessionStorage.removeItem('userName');
