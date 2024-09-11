@@ -54,6 +54,7 @@
             <option value="Mesero">Mesero</option>
             <option value="Limpieza">Limpieza</option>
             <option value="Gerente">Gerente</option>
+            <option value="Administrador">Administrador</option>
         </select>
         <input type="password" id="password" placeholder="Contraseña">
         <button onclick="login()">Iniciar Sesión</button>
@@ -64,7 +65,8 @@
             'Cocinero': 'cocina123',
             'Mesero': 'mesa456',
             'Limpieza': 'limpio789',
-            'Gerente': 'admin000'
+            'Gerente': 'admin000',
+            'Administrador': 'superadmin'
         };
 
         function login() {
@@ -73,7 +75,9 @@
 
             if (password === passwords[user]) {
                 sessionStorage.setItem('userName', user);
-                if (user === 'Gerente') {
+                if (user === 'Administrador') {
+                    window.location.href = 'admin.html';
+                } else if (user === 'Gerente') {
                     window.location.href = 'admin.html';
                 } else {
                     window.location.href = 'worker.html';
