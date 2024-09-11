@@ -5,19 +5,62 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Administración de Tareas del Restaurante</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-        h1 { text-align: center; color: #333; }
-        .task-input { display: flex; margin-bottom: 20px; }
-        .task-input input, .task-input select { flex-grow: 1; padding: 10px; font-size: 16px; }
-        .task-input button { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
-        .task-list { list-style-type: none; padding: 0; }
-        .task-item { display: flex; align-items: center; margin-bottom: 10px; padding: 10px; background-color: #f9f9f9; }
-        .task-item span { flex-grow: 1; }
-        .task-item button { padding: 5px 10px; background-color: #f44336; color: white; border: none; cursor: pointer; }
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px; 
+        }
+        h1 { 
+            text-align: center; 
+            color: #333; 
+        }
+        .task-input { 
+            display: flex; 
+            margin-bottom: 20px; 
+        }
+        .task-input input, .task-input select { 
+            flex-grow: 1; 
+            padding: 10px; 
+            font-size: 16px; 
+        }
+        .task-input button, .logout-button { 
+            padding: 10px 20px; 
+            background-color: #4CAF50; 
+            color: white; 
+            border: none; 
+            cursor: pointer; 
+        }
+        .logout-button {
+            background-color: #f44336;
+            float: right;
+        }
+        .task-list { 
+            list-style-type: none; 
+            padding: 0; 
+        }
+        .task-item { 
+            display: flex; 
+            align-items: center; 
+            margin-bottom: 10px; 
+            padding: 10px; 
+            background-color: #f9f9f9; 
+        }
+        .task-item span { 
+            flex-grow: 1; 
+        }
+        .task-item button { 
+            padding: 5px 10px; 
+            background-color: #f44336; 
+            color: white; 
+            border: none; 
+            cursor: pointer; 
+        }
     </style>
 </head>
 <body>
     <h1>Administración de Tareas del Restaurante</h1>
+    <button class="logout-button" onclick="logout()">Cerrar Sesión</button>
     <div class="task-input">
         <input type="text" id="newTask" placeholder="Nueva tarea">
         <select id="assignTo">
@@ -56,7 +99,7 @@
             const assignedTo = assignToSelect.value;
             if (text) {
                 const newTask = {
-                    id: Date.now().toString(), // Usar timestamp como id único
+                    id: Date.now().toString(),
                     text: text,
                     assignedTo: assignedTo,
                     completed: false
@@ -74,6 +117,11 @@
 
         function saveTasks() {
             localStorage.setItem('tasks', JSON.stringify(tasks));
+        }
+
+        function logout() {
+            sessionStorage.removeItem('userName');
+            window.location.href = 'login.html';
         }
 
         renderTasks();
