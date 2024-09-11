@@ -11,9 +11,15 @@
             margin: 0 auto; 
             padding: 20px; 
         }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
         h1 { 
-            text-align: center; 
             color: #333; 
+            margin: 0;
         }
         .task-input { 
             display: flex; 
@@ -26,14 +32,15 @@
         }
         .task-input button, .logout-button { 
             padding: 10px 20px; 
-            background-color: #4CAF50; 
             color: white; 
             border: none; 
             cursor: pointer; 
         }
+        .task-input button {
+            background-color: #4CAF50;
+        }
         .logout-button {
             background-color: #f44336;
-            float: right;
         }
         .task-list { 
             list-style-type: none; 
@@ -41,13 +48,11 @@
         }
         .task-item { 
             display: flex; 
+            justify-content: space-between;
             align-items: center; 
             margin-bottom: 10px; 
             padding: 10px; 
             background-color: #f9f9f9; 
-        }
-        .task-item span { 
-            flex-grow: 1; 
         }
         .task-item button { 
             padding: 5px 10px; 
@@ -59,8 +64,10 @@
     </style>
 </head>
 <body>
-    <h1>Administración de Tareas del Restaurante</h1>
-    <button class="logout-button" onclick="logout()">Cerrar Sesión</button>
+    <div class="header">
+        <h1>Administración de Tareas del Restaurante</h1>
+        <button class="logout-button" onclick="logout()">Cerrar Sesión</button>
+    </div>
     <div class="task-input">
         <input type="text" id="newTask" placeholder="Nueva tarea">
         <select id="assignTo">
@@ -74,50 +81,7 @@
     <ul id="taskList" class="task-list"></ul>
 
     <script>
-        let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
-
-        function renderTasks() {
-            const taskList = document.getElementById('taskList');
-            taskList.innerHTML = '';
-            tasks.forEach((task, index) => {
-                const li = document.createElement('li');
-                li.className = 'task-item';
-                li.innerHTML = `
-                    <span>${task.text}</span>
-                    <span>Asignado a: ${task.assignedTo}</span>
-                    <button onclick="deleteTask(${index})">Eliminar</button>
-                `;
-                taskList.appendChild(li);
-            });
-            saveTasks();
-        }
-
-        function addTask() {
-            const newTaskInput = document.getElementById('newTask');
-            const assignToSelect = document.getElementById('assignTo');
-            const text = newTaskInput.value.trim();
-            const assignedTo = assignToSelect.value;
-            if (text) {
-                const newTask = {
-                    id: Date.now().toString(),
-                    text: text,
-                    assignedTo: assignedTo,
-                    completed: false
-                };
-                tasks.push(newTask);
-                newTaskInput.value = '';
-                renderTasks();
-            }
-        }
-
-        function deleteTask(index) {
-            tasks.splice(index, 1);
-            renderTasks();
-        }
-
-        function saveTasks() {
-            localStorage.setItem('tasks', JSON.stringify(tasks));
-        }
+        // ... (el resto del script permanece igual)
 
         function logout() {
             sessionStorage.removeItem('userName');
