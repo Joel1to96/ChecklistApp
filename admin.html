@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administración de Tareas del Restaurante</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1 { text-align: center; color: #333; }
+        .task-input { display: flex; margin-bottom: 20px; }
+        .task-input input, .task-input select { flex-grow: 1; padding: 10px; font-size: 16px; }
+        .task-input button { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+        .task-list { list-style-type: none; padding: 0; }
+        .task-item { display: flex; align-items: center; margin-bottom: 10px; padding: 10px; background-color: #f9f9f9; }
+        .task-item span { flex-grow: 1; }
+        .task-item button { padding: 5px 10px; background-color: #f44336; color: white; border: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Administración de Tareas del Restaurante</h1>
+    <div class="task-input">
+        <input type="text" id="newTask" placeholder="Nueva tarea">
+        <select id="assignTo">
+            <option value="Cocinero">Cocinero</option>
+            <option value="Mesero">Mesero</option>
+            <option value="Limpieza">Limpieza</option>
+            <option value="Gerente">Gerente</option>
+        </select>
+        <button onclick="addTask()">Añadir Tarea</button>
+    </div>
+    <ul id="taskList" class="task-list"></ul>
+
+    <script>
+        let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+
+        function renderTasks() {
+            const taskList = document.getElementById('taskList');
+            taskList.innerHTML = '';
+            tasks.forEach((task, index) => {
+                const li = document.createElement('li');
+                li.className = 'task-item';
+                li.innerHTML = `
+                    <span>${task.text}</span>
+                    <span>Asignado a: ${task.assignedTo}</span>
+                    <button onclick="deleteTask(${index})">Eliminar</button>
+                `;
+                taskList.appendChild(li);
+            });
+            saveTasks();
+        }
+
+        function addTask() {
+            const newTaskInput = document.getElementById('newTask');
+            const assignToSelect = document.getElementById('assignTo');
+            const text = newTaskInput.value.trim();
+            const assignedTo = assignToSelect.value;
+            if (text) {
+                const newTask = {
+                    id: Date.now().toString(), // Usar timestamp como id único
+                    text: text,
+                    assignedTo: assignedTo,
+                    completed: false
+                };
+                tasks.push(newTask);
+                newTaskInput.value = '';
+                renderTasks();
+            }
+        }
+
+        function deleteTask(index) {
+            tasks.splice(index, 1);
+            renderTasks();
+        }
+
+        function saveTasks() {
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+        }
+
+        renderTasks();
+    </script>
+</body>
+</html>

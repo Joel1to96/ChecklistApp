@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión - Tareas del Restaurante</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .login-container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        h1 {
+            margin-bottom: 1.5rem;
+            color: #333;
+        }
+        select, input, button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1>Iniciar Sesión</h1>
+        <select id="userSelect">
+            <option value="Cocinero">Cocinero</option>
+            <option value="Mesero">Mesero</option>
+            <option value="Limpieza">Limpieza</option>
+            <option value="Gerente">Gerente</option>
+        </select>
+        <input type="password" id="password" placeholder="Contraseña">
+        <button onclick="login()">Iniciar Sesión</button>
+    </div>
+
+    <script>
+        const passwords = {
+            'Cocinero': 'cocina123',
+            'Mesero': 'mesa456',
+            'Limpieza': 'limpio789',
+            'Gerente': 'admin000'
+        };
+
+        function login() {
+            const user = document.getElementById('userSelect').value;
+            const password = document.getElementById('password').value;
+
+            if (password === passwords[user]) {
+                sessionStorage.setItem('userName', user);
+                if (user === 'Gerente') {
+                    window.location.href = 'admin.html';
+                } else {
+                    window.location.href = 'worker.html';
+                }
+            } else {
+                alert('Contraseña incorrecta. Por favor, intente de nuevo.');
+            }
+        }
+    </script>
+</body>
+</html>

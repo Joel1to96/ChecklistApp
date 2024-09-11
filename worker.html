@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tareas del Restaurante</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            font-size: 2.5em;
+            margin-bottom: 30px;
+        }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        .controls button {
+            font-size: 1.1em;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #3498db;
+            color: white;
+            transition: background-color 0.3s;
+        }
+        .controls button:hover {
+            background-color: #2980b9;
+        }
+        .task-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .task-item {
+            background-color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: 20px;
+            font-size: 1.1em;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            color: #333;
+        }
+        .task-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 8px rgba(0,0,0,0.15);
+        }
+        .task-item.completed {
+            background-color: #2ecc71;
+        }
+        @media (max-width: 600px) {
+            .controls {
+                flex-direction: column;
+            }
+            .controls button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Tareas del Restaurante</h1>
+    <div class="controls">
+        <span id="userName"></span>
+        <button onclick="prepareEmail()">Enviar Resumen por Correo</button>
+        <button onclick="logout()">Cerrar Sesión</button>
+    </div>
+    <div id="taskGrid" class="task-grid"></div>
+
+    <script>
+        const userName = sessionStorage.getItem('userName');
+        if (!userName) {
+            window.location.href = 'login.html';
+        }
+
+        document.getElementById('userName').textContent = `Usuario: ${userName}`;
+
+        let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+
+        function renderTasks() {
+            const taskGrid = document.getElementById('taskGrid');
+            taskGrid.innerHTML = '';
+            const filteredTasks = tasks.filter(task => task.assignedTo === userName);
+            filteredTasks.forEach((task) => {
+                const button = document.createElement('button');
+                button.className = `task-item ${task.completed ? 'completed' : ''}`;
+                button.textContent = task.text;
+                button.onclick = () => toggleTask(task.id);
+                taskGrid.appendChild(button);
+            });
+        }
+
+        function toggleTask(taskId) {
+            const taskIndex = tasks.findIndex(task => task.id === taskId);
+            if (taskIndex !== -1) {
+                tasks[taskIndex].completed = !tasks[taskIndex].completed;
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+                renderTasks();
+            }
+        }
+
+        const defaultEmailAddress = "gerente@restaurante.com";
+
+        function prepareEmail() {
+            const userTasks = tasks.filter(task => task.assignedTo === userName);
+            const completedTasks = userTasks.filter(task => task.completed);
+            const incompleteTasks = userTasks.filter(task => !task.completed);
+
+            let emailBody = `Resumen de Tareas para ${userName}\n\n`;
+            emailBody += "Tareas Completadas:\n";
+            completedTasks.forEach(task => {
+                emailBody += `- ${task.text}\n`;
+            });
+            emailBody += "\nTareas Pendientes:\n";
+            incompleteTasks.forEach(task => {
+                emailBody += `- ${task.text}\n`;
+            });
+
+            const emailSubject = `Resumen de Tareas del Restaurante - ${userName}`;
+            const mailtoLink = `mailto:${encodeURIComponent(defaultEmailAddress)}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+
+            tasks = tasks.map(task => ({...task, completed: false}));
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+
+            window.location.href = mailtoLink;
+
+            renderTasks();
+        }
+
+        function logout() {
+            sessionStorage.removeItem('userName');
+            window.location.href = 'login.html';
+        }
+
+        renderTasks();
+    </script>
+</body>
+</html>
