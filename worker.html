@@ -116,7 +116,7 @@
             }
         }
 
-        const defaultEmailAddress = "gerente@restaurante.com";
+           const defaultEmailAddresses = ["joelb.6foot@gmail.com", "jsanchez.6foot@gmail.com"];
 
         function prepareEmail() {
             const userTasks = tasks.filter(task => task.assignedTo === userName);
@@ -134,7 +134,7 @@
             });
 
             const emailSubject = `Resumen de Tareas del Restaurante - ${userName}`;
-            const mailtoLink = `mailto:${encodeURIComponent(defaultEmailAddress)}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+            const mailtoLink = `mailto:${defaultEmailAddresses.join(',')}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
 
             tasks = tasks.map(task => ({...task, completed: false}));
             localStorage.setItem('tasks', JSON.stringify(tasks));
