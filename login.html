@@ -20,19 +20,22 @@
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             text-align: center;
+            width: 300px;
         }
         h1 {
             margin-bottom: 1.5rem;
             color: #333;
+            font-size: 2em;
         }
-        select, input, button {
+        input, button {
             display: block;
             width: 100%;
-            padding: 10px;
+            padding: 15px;
             margin-bottom: 1rem;
             border: 1px solid #ddd;
             border-radius: 4px;
             box-sizing: border-box;
+            font-size: 1.1em;
         }
         button {
             background-color: #4CAF50;
@@ -49,35 +52,26 @@
 <body>
     <div class="login-container">
         <h1>Iniciar Sesión</h1>
-        <select id="userSelect">
-            <option value="Cocinero">Cocinero</option>
-            <option value="Mesero">Mesero</option>
-            <option value="Limpieza">Limpieza</option>
-            <option value="Gerente">Gerente</option>
-            <option value="Administrador">Administrador</option>
-        </select>
-        <input type="password" id="password" placeholder="Contraseña">
+        <input type="password" id="password" placeholder="Contraseña" autofocus>
         <button onclick="login()">Iniciar Sesión</button>
     </div>
 
     <script>
         const passwords = {
-            'Cocinero': 'cocina123',
-            'Mesero': 'mesa456',
-            'Limpieza': 'limpio789',
-            'Gerente': 'admin000',
-            'Administrador': 'superadmin'
+            'cocina123': 'Cocinero',
+            'mesa456': 'Mesero',
+            'limpio789': 'Limpieza',
+            'admin000': 'Gerente',
+            'superadmin': 'Administrador'
         };
 
         function login() {
-            const user = document.getElementById('userSelect').value;
             const password = document.getElementById('password').value;
+            const user = passwords[password];
 
-            if (password === passwords[user]) {
+            if (user) {
                 sessionStorage.setItem('userName', user);
-                if (user === 'Administrador') {
-                    window.location.href = 'admin.html';
-                } else if (user === 'Gerente') {
+                if (user === 'Administrador' || user === 'Gerente') {
                     window.location.href = 'admin.html';
                 } else {
                     window.location.href = 'worker.html';
@@ -86,6 +80,13 @@
                 alert('Contraseña incorrecta. Por favor, intente de nuevo.');
             }
         }
+
+        // Permitir iniciar sesión presionando Enter
+        document.getElementById('password').addEventListener('keyup', function(event) {
+            if (event.key === 'Enter') {
+                login();
+            }
+        });
     </script>
 </body>
 </html>
