@@ -25,15 +25,7 @@
         import { getFirestore } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
 
         // Your web app's Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyBRckUgIWW36rZ8Wv52yZnrxY5VsFatf4E",
-            authDomain: "chickencrunchersapp.firebaseapp.com",
-            projectId: "chickencrunchersapp",
-            storageBucket: "chickencrunchersapp.appspot.com",
-            messagingSenderId: "947163923288",
-            appId: "1:947163923288:web:8ee5fd7758e146a1e99b2d",
-            measurementId: "G-HT3CWMWWEP"
-        };
+        import { firebaseConfig } from './config.js';
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
