@@ -209,81 +209,111 @@
         import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, where, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
         import { firebaseConfig } from './config.js';
 
-      // Initialize Firebase
-      const app = initializeApp(firebaseConfig);
-      const db = getFirestore(app);
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
 
-      // Función para añadir una tarea
-      async function addTask() {
-        const taskText = document.getElementById('newTask').value;
-        const assignTo = document.getElementById('assignTo').value;
-        try {
-          await addDoc(collection(db, "tasks"), {
-            text: taskText,
-            assignedTo: assignTo,
-            completed: false,
-            createdAt: serverTimestamp()
-          });
-          document.getElementById('newTask').value = '';
-        } catch (e) {
-          console.error("Error al añadir tarea: ", e);
-        }
-      }
-
-      // Función para obtener todas las tareas
-      async function getTasks() {
-        const querySnapshot = await getDocs(collection(db, "tasks"));
-        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      }
-
-      // Función para actualizar una tarea
-      async function updateTask(taskId, updatedData) {
-        await updateDoc(doc(db, "tasks", taskId), updatedData);
-      }
-
-      // Función para eliminar una tarea
-      async function deleteTask(taskId) {
-        await deleteDoc(doc(db, "tasks", taskId));
-        renderTasks();
-      }
-
-      // Función para renderizar tareas
-      async function renderTasks() {
-        const taskList = document.getElementById('taskList');
-        taskList.innerHTML = '';
-        const tasks = await getTasks();
-        tasks.forEach((task) => {
-          const li = document.createElement('li');
-          li.innerHTML = `
-            <span>${task.text} (Asignado a: ${task.assignedTo})</span>
-            <button onclick="deleteTask('${task.id}')">Eliminar</button>
-          `;
-          taskList.appendChild(li);
-        });
-      }
-
-      // Escuchar cambios en tiempo real
-      function listenToTasks() {
-        return onSnapshot(collection(db, "tasks"), (snapshot) => {
-          renderTasks();
-        });
-      }
-
-      // Usa estas funciones en tu código existente para manejar tareas
-      // Por ejemplo:
-      // addTask({ title: "Nueva tarea", description: "Descripción de la tarea" });
-      // getTasks().then(tasks => console.log(tasks));
-      // updateTask("id_de_la_tarea", { title: "Tarea actualizada" });
-      // deleteTask("id_de_la_tarea");
-
-      // Escuchar cambios en tiempo real
-      listenToTasks();
-
-      // ... resto de tu código de admin ...
+        // Exponer db globalmente
+        window.db = db;
     </script>
+
     <script>
-        renderTasks();
-        listenToTasks();
+        // Función para añadir una tarea
+        async function addTask() {
+            const taskText = document.getElementById('newTask').value;
+            const assignTo = document.getElementById('assignTo').value;
+            try {
+                await addDoc(collection(db, "tasks"), {
+                    text: taskText,
+                    assignedTo: assignTo,
+                    completed: false,
+                    createdAt: serverTimestamp()
+                });
+                document.getElementById('newTask').value = '';
+                renderTasks();
+            } catch (e) {
+                console.error("Error al añadir tarea: ", e);
+            }
+        }
+
+        // Función para obtener todas las tareas
+        async function getTasks() {
+            const querySnapshot = await getDocs(collection(db, "tasks"));
+            return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        }
+
+        // Función para actualizar una tarea
+        async function updateTask(taskId, updatedData) {
+            await updateDoc(doc(db, "tasks", taskId), updatedData);
+        }
+
+        // Función para eliminar una tarea
+        async function deleteTask(taskId) {
+            await deleteDoc(doc(db, "tasks", taskId));
+            renderTasks();
+        }
+
+        // Función para renderizar tareas
+        async function renderTasks() {
+            const taskList = document.getElementById('taskList');
+            taskList.innerHTML = '';
+            const tasks = await getTasks();
+            tasks.forEach((task) => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <span>${task.text} (Asignado a: ${task.assignedTo})</span>
+                    <button onclick="deleteTask('${task.id}')">Eliminar</button>
+                `;
+                taskList.appendChild(li);
+            });
+        }
+
+        // Escuchar cambios en tiempo real
+        function listenToTasks() {
+            return onSnapshot(collection(db, "tasks"), (snapshot) => {
+                renderTasks();
+            });
+        }
+
+        // Función para limpiar el almacenamiento
+        async function clearStorage() {
+            if (confirm('¿Estás seguro de que quieres borrar todos los datos?')) {
+                const collections = ['tasks', 'announcements', 'shifts'];
+                for (let collectionName of collections) {
+                    const querySnapshot = await getDocs(collection(db, collectionName));
+                    const batch = writeBatch(db);
+                    querySnapshot.forEach((doc) => {
+                        batch.delete(doc.ref);
+                    });
+                    await batch.commit();
+                }
+                alert('Almacenamiento limpiado');
+                renderTasks();
+                // Actualizar cualquier otra vista necesaria
+            }
+        }
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', () => {
+            renderTasks();
+            renderAnnouncements();
+            renderCalendar();
+            listenToTasks();
+        });
+    </script>
+
+    <script>
+        function showSection(sectionId, clickedElement) {
+            document.querySelectorAll('.section').forEach(section => section.classList.remove('active'));
+            document.getElementById(sectionId).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            clickedElement.classList.add('active');
+        }
+
+        function logout() {
+            sessionStorage.removeItem('userName');
+            window.location.href = 'login.html';
+        }
     </script>
 </body>
 </html>
