@@ -213,11 +213,24 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // Exponer db globalmente
+        // Exponer funciones y db globalmente
         window.db = db;
+        window.collection = collection;
+        window.addDoc = addDoc;
+        window.getDocs = getDocs;
+        window.updateDoc = updateDoc;
+        window.deleteDoc = deleteDoc;
+        window.doc = doc;
+        window.onSnapshot = onSnapshot;
+        window.query = query;
+        window.where = where;
+        window.serverTimestamp = serverTimestamp;
+        window.writeBatch = writeBatch;
     </script>
 
     <script>
+        let calendar;
+
         // Función para añadir una tarea
         async function addTask() {
             const taskText = document.getElementById('newTask').value;
@@ -275,6 +288,98 @@
             });
         }
 
+        // Función para añadir un anuncio
+        async function addAnnouncement() {
+            const title = document.getElementById('announcementTitle').value;
+            const content = document.getElementById('announcementContent').value;
+            try {
+                await addDoc(collection(db, "announcements"), {
+                    title: title,
+                    content: content,
+                    createdAt: serverTimestamp()
+                });
+                document.getElementById('announcementTitle').value = '';
+                document.getElementById('announcementContent').value = '';
+                renderAnnouncements();
+            } catch (e) {
+                console.error("Error al añadir anuncio: ", e);
+            }
+        }
+
+        // Función para renderizar anuncios
+        async function renderAnnouncements() {
+            const announcementList = document.getElementById('announcementList');
+            announcementList.innerHTML = '';
+            const querySnapshot = await getDocs(collection(db, "announcements"));
+            querySnapshot.forEach((doc) => {
+                const announcement = doc.data();
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <h3>${announcement.title}</h3>
+                    <p>${announcement.content}</p>
+                `;
+                announcementList.appendChild(li);
+            });
+        }
+
+        // Función para añadir un turno
+        async function addShift() {
+            const date = document.getElementById('shiftDate').value;
+            const start = document.getElementById('shiftStart').value;
+            const end = document.getElementById('shiftEnd').value;
+            const employee = document.getElementById('shiftEmployee').value;
+            try {
+                await addDoc(collection(db, "shifts"), {
+                    date: date,
+                    start: start,
+                    end: end,
+                    employee: employee,
+                    createdAt: serverTimestamp()
+                });
+                document.getElementById('shiftDate').value = '';
+                document.getElementById('shiftStart').value = '';
+                document.getElementById('shiftEnd').value = '';
+                document.getElementById('shiftEmployee').value = '';
+                renderCalendar();
+            } catch (e) {
+                console.error("Error al añadir turno: ", e);
+            }
+        }
+
+        // Función para renderizar el calendario
+        function renderCalendar() {
+            const calendarEl = document.getElementById('calendar');
+            if (calendar) {
+                calendar.destroy();
+            }
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                locale: 'es',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                },
+                events: async function(fetchInfo, successCallback, failureCallback) {
+                    try {
+                        const querySnapshot = await getDocs(collection(db, "shifts"));
+                        const events = querySnapshot.docs.map(doc => {
+                            const shift = doc.data();
+                            return {
+                                title: `${shift.employee}: ${shift.start} - ${shift.end}`,
+                                start: `${shift.date}T${shift.start}`,
+                                end: `${shift.date}T${shift.end}`
+                            };
+                        });
+                        successCallback(events);
+                    } catch (error) {
+                        failureCallback(error);
+                    }
+                }
+            });
+            calendar.render();
+        }
+
         // Función para limpiar el almacenamiento
         async function clearStorage() {
             if (confirm('¿Estás seguro de que quieres borrar todos los datos?')) {
@@ -289,7 +394,8 @@
                 }
                 alert('Almacenamiento limpiado');
                 renderTasks();
-                // Actualizar cualquier otra vista necesaria
+                renderAnnouncements();
+                renderCalendar();
             }
         }
 
