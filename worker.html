@@ -198,25 +198,10 @@
         }
         console.log('Usuario actual:', userName);
 
-        let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
         let shifts = JSON.parse(localStorage.getItem('shifts')) || [];
         let announcements = JSON.parse(localStorage.getItem('announcements')) || [];
 
-        console.log('Tareas en localStorage:', tasks);
         console.log('Turnos en localStorage:', shifts);
-
-        function renderTasks() {
-            const taskGrid = document.getElementById('taskGrid');
-            taskGrid.innerHTML = '';
-            const filteredTasks = tasks.filter(task => task.assignedTo === userName);
-            filteredTasks.forEach((task) => {
-                const button = document.createElement('button');
-                button.className = `task-item ${task.completed ? 'completed' : ''}`;
-                button.textContent = task.text;
-                button.onclick = () => toggleTask(task.id);
-                taskGrid.appendChild(button);
-            });
-        }
 
         let calendar;
 
@@ -257,43 +242,7 @@
             }));
         }
 
-        function toggleTask(taskId) {
-            const taskIndex = tasks.findIndex(task => task.id === taskId);
-            if (taskIndex !== -1) {
-                tasks[taskIndex].completed = !tasks[taskIndex].completed;
-                localStorage.setItem('tasks', JSON.stringify(tasks));
-                renderTasks();
-                checkPendingTasks(); // Actualizar las notificaciones después de cambiar el estado de una tarea
-            }
-        }
-
         const defaultEmailAddresses = ["gerente@restaurante.com", "supervisor@restaurante.com"];
-
-        function prepareEmail() {
-            const userTasks = tasks.filter(task => task.assignedTo === userName);
-            const completedTasks = userTasks.filter(task => task.completed);
-            const incompleteTasks = userTasks.filter(task => !task.completed);
-
-            let emailBody = `Resumen de Tareas para ${userName}\n\n`;
-            emailBody += "Tareas Completadas:\n";
-            completedTasks.forEach(task => {
-                emailBody += `- ${task.text}\n`;
-            });
-            emailBody += "\nTareas Pendientes:\n";
-            incompleteTasks.forEach(task => {
-                emailBody += `- ${task.text}\n`;
-            });
-
-            const emailSubject = `Resumen de Tareas del Restaurante - ${userName}`;
-            const mailtoLink = `mailto:${defaultEmailAddresses.join(',')}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
-
-            tasks = tasks.map(task => ({...task, completed: false}));
-            localStorage.setItem('tasks', JSON.stringify(tasks));
-
-            window.location.href = mailtoLink;
-
-            renderTasks();
-        }
 
         function resetAppState() {
             localStorage.setItem('lastShiftCheck', '0');
@@ -371,18 +320,8 @@
 
         function checkPendingTasks() {
             const lastTaskCheck = localStorage.getItem('lastTaskCheck') || '0';
-            console.log('Todas las tareas:', tasks);
-            const newTasks = tasks.filter(task => 
-                task.assignedTo === userName && 
-                !task.completed && 
-                new Date(task.id) > new Date(parseInt(lastTaskCheck))
-            );
-            console.log('Tareas filtradas para', userName, ':', newTasks);
             console.log('Último check de tareas:', new Date(parseInt(lastTaskCheck)));
-            updateNotificationBadge('tasksBadge', newTasks.length);
-            if (newTasks.length > 0) {
-                localStorage.setItem('lastTaskCheck', Date.now().toString());
-            }
+            updateNotificationBadge('tasksBadge', 0);
         }
 
         function checkUpcomingShifts() {
@@ -430,7 +369,6 @@
             checkPendingTasks();
         });
 
-        renderTasks();
         renderAnnouncements();
 
         // Diagnóstico
@@ -460,6 +398,113 @@
             localStorage.setItem('lastShiftCheck', '0');
         }
         console.log('lastShiftCheck inicial:', localStorage.getItem('lastShiftCheck'));
+    </script>
+
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+      import { getFirestore, collection, query, where, onSnapshot, getDocs, doc, getDoc, updateDoc, writeBatch, getDoc, updateDoc, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+      import { firebaseConfig } from './config.js';
+
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+
+      async function renderTasks() {
+          const taskGrid = document.getElementById('taskGrid');
+          taskGrid.innerHTML = '';
+          const q = query(collection(db, "tasks"), where("assignedTo", "==", userName));
+          const querySnapshot = await getDocs(q);
+          querySnapshot.forEach((doc) => {
+              const task = doc.data();
+              const button = document.createElement('button');
+              button.className = `task-item ${task.completed ? 'completed' : ''}`;
+              button.textContent = task.text;
+              button.onclick = () => toggleTask(doc.id);
+              taskGrid.appendChild(button);
+          });
+      }
+
+      async function toggleTask(taskId) {
+          const taskDoc = doc(db, "tasks", taskId);
+          const taskSnap = await getDoc(taskDoc);
+          if (taskSnap.exists()) {
+              const taskData = taskSnap.data();
+              await updateDoc(taskDoc, {
+                  completed: !taskData.completed
+              });
+              renderTasks();
+              checkPendingTasks();
+          }
+      }
+
+      async function checkPendingTasks() {
+          const lastTaskCheck = localStorage.getItem('lastTaskCheck') || '0';
+          const q = query(
+              collection(db, "tasks"),
+              where("assignedTo", "==", userName),
+              where("completed", "==", false),
+              where("createdAt", ">", new Date(parseInt(lastTaskCheck)))
+          );
+          const querySnapshot = await getDocs(q);
+          const newTasks = querySnapshot.docs;
+          updateNotificationBadge('tasksBadge', newTasks.length);
+          if (newTasks.length > 0) {
+              localStorage.setItem('lastTaskCheck', Date.now().toString());
+          }
+      }
+
+      async function prepareEmail() {
+          const q = query(collection(db, "tasks"), where("assignedTo", "==", userName));
+          const querySnapshot = await getDocs(q);
+          const userTasks = querySnapshot.docs.map(doc => doc.data());
+          const completedTasks = userTasks.filter(task => task.completed);
+          const incompleteTasks = userTasks.filter(task => !task.completed);
+
+          let emailBody = `Resumen de Tareas para ${userName}\n\n`;
+          emailBody += "Tareas Completadas:\n";
+          completedTasks.forEach(task => {
+              emailBody += `- ${task.text}\n`;
+          });
+          emailBody += "\nTareas Pendientes:\n";
+          incompleteTasks.forEach(task => {
+              emailBody += `- ${task.text}\n`;
+          });
+
+          const emailSubject = `Resumen de Tareas del Restaurante - ${userName}`;
+          const mailtoLink = `mailto:${defaultEmailAddresses.join(',')}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+
+          // Marcar todas las tareas como no completadas
+          const batch = writeBatch(db);
+          querySnapshot.forEach(doc => {
+              batch.update(doc.ref, { completed: false });
+          });
+          await batch.commit();
+
+          window.location.href = mailtoLink;
+
+          renderTasks();
+      }
+
+      // Escuchar cambios en tareas asignadas al usuario actual
+      const q = query(collection(db, "tasks"), where("assignedTo", "==", userName));
+      onSnapshot(q, (snapshot) => {
+          snapshot.docChanges().forEach((change) => {
+              if (change.type === "added") {
+                  console.log("Nueva tarea asignada: ", change.doc.data());
+                  // Actualizar la UI para mostrar la nueva tarea
+              }
+              if (change.type === "modified") {
+                  console.log("Tarea modificada: ", change.doc.data());
+                  // Actualizar la UI para reflejar los cambios en la tarea
+              }
+              if (change.type === "removed") {
+                  console.log("Tarea eliminada: ", change.doc.id);
+                  // Eliminar la tarea de la UI
+              }
+          });
+      });
+
+      // Implementa funciones similares para anuncios y turnos
     </script>
 </body>
 </html>
