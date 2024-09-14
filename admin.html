@@ -206,16 +206,24 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
-        import * as firestore from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
         import { firebaseConfig } from './config.js';
 
-        // Initialize Firebase
+        // Inicializar Firebase
         const app = initializeApp(firebaseConfig);
-        const db = firestore.getFirestore(app);
+        const db = getFirestore(app);
 
-        // Exponer funciones y db globalmente
+        // Exponer funciones globalmente
         window.db = db;
-        window.firestore = firestore;
+        window.collection = collection;
+        window.addDoc = addDoc;
+        window.getDocs = getDocs;
+        window.updateDoc = updateDoc;
+        window.deleteDoc = deleteDoc;
+        window.doc = doc;
+        window.onSnapshot = onSnapshot;
+        window.serverTimestamp = serverTimestamp;
+        window.writeBatch = writeBatch;
     </script>
 
     <script>
@@ -226,11 +234,11 @@
             const taskText = document.getElementById('newTask').value;
             const assignTo = document.getElementById('assignTo').value;
             try {
-                await firestore.addDoc(firestore.collection(db, "tasks"), {
+                await addDoc(collection(db, "tasks"), {
                     text: taskText,
                     assignedTo: assignTo,
                     completed: false,
-                    createdAt: firestore.serverTimestamp()
+                    createdAt: serverTimestamp()
                 });
                 document.getElementById('newTask').value = '';
                 renderTasks();
@@ -241,18 +249,18 @@
 
         // Función para obtener todas las tareas
         async function getTasks() {
-            const querySnapshot = await firestore.getDocs(firestore.collection(db, "tasks"));
+            const querySnapshot = await getDocs(collection(db, "tasks"));
             return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         }
 
         // Función para actualizar una tarea
         async function updateTask(taskId, updatedData) {
-            await firestore.updateDoc(firestore.doc(db, "tasks", taskId), updatedData);
+            await updateDoc(doc(db, "tasks", taskId), updatedData);
         }
 
         // Función para eliminar una tarea
         async function deleteTask(taskId) {
-            await firestore.deleteDoc(firestore.doc(db, "tasks", taskId));
+            await deleteDoc(doc(db, "tasks", taskId));
             renderTasks();
         }
 
@@ -273,7 +281,7 @@
 
         // Escuchar cambios en tiempo real
         function listenToTasks() {
-            return firestore.onSnapshot(firestore.collection(db, "tasks"), (snapshot) => {
+            return onSnapshot(collection(db, "tasks"), (snapshot) => {
                 renderTasks();
             });
         }
@@ -283,10 +291,10 @@
             const title = document.getElementById('announcementTitle').value;
             const content = document.getElementById('announcementContent').value;
             try {
-                await firestore.addDoc(firestore.collection(db, "announcements"), {
+                await addDoc(collection(db, "announcements"), {
                     title: title,
                     content: content,
-                    createdAt: firestore.serverTimestamp()
+                    createdAt: serverTimestamp()
                 });
                 document.getElementById('announcementTitle').value = '';
                 document.getElementById('announcementContent').value = '';
@@ -300,7 +308,7 @@
         async function renderAnnouncements() {
             const announcementList = document.getElementById('announcementList');
             announcementList.innerHTML = '';
-            const querySnapshot = await firestore.getDocs(firestore.collection(db, "announcements"));
+            const querySnapshot = await getDocs(collection(db, "announcements"));
             querySnapshot.forEach((doc) => {
                 const announcement = doc.data();
                 const li = document.createElement('li');
@@ -319,12 +327,12 @@
             const end = document.getElementById('shiftEnd').value;
             const employee = document.getElementById('shiftEmployee').value;
             try {
-                await firestore.addDoc(firestore.collection(db, "shifts"), {
+                await addDoc(collection(db, "shifts"), {
                     date: date,
                     start: start,
                     end: end,
                     employee: employee,
-                    createdAt: firestore.serverTimestamp()
+                    createdAt: serverTimestamp()
                 });
                 document.getElementById('shiftDate').value = '';
                 document.getElementById('shiftStart').value = '';
@@ -352,7 +360,7 @@
                 },
                 events: async function(fetchInfo, successCallback, failureCallback) {
                     try {
-                        const querySnapshot = await firestore.getDocs(firestore.collection(db, "shifts"));
+                        const querySnapshot = await getDocs(collection(db, "shifts"));
                         const events = querySnapshot.docs.map(doc => {
                             const shift = doc.data();
                             return {
@@ -375,8 +383,8 @@
             if (confirm('¿Estás seguro de que quieres borrar todos los datos?')) {
                 const collections = ['tasks', 'announcements', 'shifts'];
                 for (let collectionName of collections) {
-                    const querySnapshot = await firestore.getDocs(firestore.collection(db, collectionName));
-                    const batch = firestore.writeBatch(db);
+                    const querySnapshot = await getDocs(collection(db, collectionName));
+                    const batch = writeBatch(db);
                     querySnapshot.forEach((doc) => {
                         batch.delete(doc.ref);
                     });
