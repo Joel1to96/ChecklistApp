@@ -2,53 +2,21 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iniciar Sesión - App del Restaurante</title>
-    <style>
-        /* Tus estilos CSS existentes */
-    </style>
+    <meta http-equiv="refresh" content="0;url=login.html">
+    <title>Redirigiendo...</title>
 </head>
 <body>
-    <div class="container">
-        <h1>Iniciar Sesión</h1>
-        <form id="loginForm">
-            <input type="text" id="username" placeholder="Nombre de usuario" required>
-            <input type="password" id="password" placeholder="Contraseña" required>
-            <button type="submit">Iniciar Sesión</button>
-        </form>
-    </div>
-
-    <!-- Scripts de Firebase -->
+    <p>Si no eres redirigido automáticamente, <a href="login.html">haz clic aquí</a>.</p>
     <script type="module">
-        // Import the functions you need from the SDKs you need
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
         import { getFirestore } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
-
-        // Your web app's Firebase configuration
         import { firebaseConfig } from './config.js';
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // Tu lógica de inicio de sesión existente
-        document.getElementById('loginForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-
-            // Aquí va tu lógica de autenticación existente
-            // Por ejemplo:
-            if (username === 'admin' && password === 'adminpass') {
-                sessionStorage.setItem('userName', username);
-                window.location.href = 'admin.html';
-            } else if (username === 'worker' && password === 'workerpass') {
-                sessionStorage.setItem('userName', username);
-                window.location.href = 'worker.html';
-            } else {
-                alert('Usuario o contraseña incorrectos');
-            }
-        });
+        // ... resto de tu código ...
     </script>
 </body>
 </html>
