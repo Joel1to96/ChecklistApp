@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iniciar Sesión - Tareas del Restaurante</title>
+    <title>Login - App del Restaurante</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -16,77 +16,122 @@
         }
         .login-container {
             background-color: white;
-            padding: 2rem;
-            border-radius: 10px;
+            padding: 30px;
+            border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             text-align: center;
-            width: 300px;
+            width: 90%;
+            max-width: 400px;
         }
         h1 {
-            margin-bottom: 1.5rem;
-            color: #333;
-            font-size: 2em;
+            color: #2c3e50;
+            margin-bottom: 20px;
         }
-        input, button {
-            display: block;
+        input[type="password"] {
             width: 100%;
             padding: 15px;
-            margin-bottom: 1rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            margin: 10px 0 20px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 18px;
             box-sizing: border-box;
-            font-size: 1.1em;
         }
-        button {
-            background-color: #4CAF50;
-            color: white;
+        .numpad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .numpad button {
+            width: 100%;
+            padding: 20px;
+            font-size: 24px;
             border: none;
+            border-radius: 8px;
             cursor: pointer;
-            transition: background-color 0.3s;
+            transition: all 0.3s ease;
         }
-        button:hover {
-            background-color: #45a049;
+        .numpad button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .numpad button:active {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+        .number {
+            background-color: #3498db;
+            color: white;
+        }
+        .clear {
+            background-color: #e74c3c;
+            color: white;
+        }
+        .enter {
+            background-color: #2ecc71;
+            color: white;
         }
     </style>
 </head>
 <body>
     <div class="login-container">
-        <h1>Iniciar Sesión</h1>
-        <input type="password" id="password" placeholder="Contraseña" autofocus>
-        <button onclick="login()">Iniciar Sesión</button>
+        <h1>Login</h1>
+        <input type="password" id="password" placeholder="Contraseña" readonly>
+        <div class="numpad">
+            <button class="number" onclick="addNumber(1)">1</button>
+            <button class="number" onclick="addNumber(2)">2</button>
+            <button class="number" onclick="addNumber(3)">3</button>
+            <button class="number" onclick="addNumber(4)">4</button>
+            <button class="number" onclick="addNumber(5)">5</button>
+            <button class="number" onclick="addNumber(6)">6</button>
+            <button class="number" onclick="addNumber(7)">7</button>
+            <button class="number" onclick="addNumber(8)">8</button>
+            <button class="number" onclick="addNumber(9)">9</button>
+            <button class="clear" onclick="clearPassword()">C</button>
+            <button class="number" onclick="addNumber(0)">0</button>
+            <button class="enter" onclick="login()">→</button>
+        </div>
     </div>
 
     <script>
         const passwords = {
-            'cocina123': 'Cocinero',
-            'mesa456': 'Mesero',
-            'limpio789': 'Limpieza',
-            'admin000': 'Gerente',
+            '123': 'Cocinero',
+            '456': 'Mesero',
+            '789': 'Limpieza',
+            '000': 'Gerente',
             'superadmin': 'Administrador'
         };
 
+        function addNumber(num) {
+            const passwordInput = document.getElementById('password');
+            passwordInput.value += num;
+        }
+
+        function clearPassword() {
+            document.getElementById('password').value = '';
+        }
+
         function login() {
             const password = document.getElementById('password').value;
-            const user = passwords[password];
-
-            if (user) {
-                sessionStorage.setItem('userName', user);
-                if (user === 'Administrador' || user === 'Gerente') {
+            const userName = passwords[password];
+            if (userName) {
+                sessionStorage.setItem('userName', userName);
+                if (userName === 'Administrador' || userName === 'Gerente') {
                     window.location.href = 'admin.html';
                 } else {
                     window.location.href = 'worker.html';
                 }
             } else {
-                alert('Contraseña incorrecta. Por favor, intente de nuevo.');
+                alert('Contraseña incorrecta');
+                clearPassword();
             }
         }
 
-        // Permitir iniciar sesión presionando Enter
-        document.getElementById('password').addEventListener('keyup', function(event) {
-            if (event.key === 'Enter') {
-                login();
-            }
-        });
+        if (!localStorage.getItem('lastShiftCheck')) {
+            const oldestPossibleDate = new Date(0).getTime().toString();
+            localStorage.setItem('lastShiftCheck', oldestPossibleDate);
+        }
+        console.log('lastShiftCheck inicial:', localStorage.getItem('lastShiftCheck'));
     </script>
 </body>
 </html>
