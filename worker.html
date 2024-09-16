@@ -132,19 +132,67 @@
             display: none;
         }
         #calendar {
-            height: calc(100vh - 200px); /* Ajusta la altura del calendario */
-            max-height: 600px; /* Establece una altura máxima */
-            margin-bottom: 80px; /* Aumenta el margen inferior */
+            height: 600px;
+            width: 100%;
         }
-        .fc .fc-scrollgrid-liquid {
-            height: 100%; /* Asegura que el contenido del calendario ocupe todo el espacio disponible */
+        
+        #calendar {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
+        
+        .fc .fc-toolbar-title {
+            font-size: 1.5em;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .fc .fc-button {
+            background-color: #3498db;
+            border-color: #3498db;
+        }
+        
+        .fc .fc-button:hover {
+            background-color: #2980b9;
+            border-color: #2980b9;
+        }
+        
+        .fc .fc-daygrid-day-number {
+            font-size: 1em;
+            padding: 5px;
+        }
+        
+        .fc .fc-event {
+            border: none;
+            padding: 2px 5px;
+            font-size: 0.85em;
+        }
+        
+        #shiftsSection {
+            height: calc(100vh - 100px); /* Ajusta este valor según sea necesario */
+            display: flex;
+            flex-direction: column;
+        }
+        #calendar {
+            flex-grow: 1;
+            width: 100%;
+        }
+
         .fc-event {
             border: none !important;
+            background-color: transparent !important;
             padding: 2px 5px !important;
         }
+
+        .fc-event-title {
+            font-weight: bold;
+            white-space: normal; /* Permite que el texto se envuelva si es necesario */
+        }
+
         .fc-daygrid-event-dot {
-            display: none !important;
+            display: none !important; /* Esto elimina el punto */
         }
     </style>
     <link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.10.2/main.min.css' rel='stylesheet' />
@@ -177,137 +225,440 @@
     </div>
 
     <nav class="nav-bar">
-        <a href="#" class="nav-item" onclick="viewAnnouncements()">
+        <a href="#" class="nav-item" onclick="showSection('announcementsSection')">
             Anuncios
-            <span class="notification-badge" id="announcementsBadge"></span>
         </a>
-        <a href="#" class="nav-item" onclick="viewTasks()">
+        <a href="#" class="nav-item" onclick="showSection('tasksSection')">
             Tareas
             <span class="notification-badge" id="tasksBadge"></span>
         </a>
-        <a href="#" class="nav-item" onclick="viewShifts()">
+        <a href="#" class="nav-item" onclick="showSection('shiftsSection')">
             Turnos
             <span class="notification-badge" id="shiftsBadge"></span>
         </a>
     </nav>
 
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script>
-        // URL de tu aplicación web de Google Apps Script
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzPx_KZxAl22TLEKIb_bsKvnh_3c5C5G9FHWdQ5YH36Rnj4JMYSNHO9N0PwiZ3w945a/exec';
+        // Configuración de Firebase
+        const firebaseConfig = {
+          apiKey: "AIzaSyD2Ro-aX_BvF4FUQDYLqNOapc_0CZIh5Qg",
+          authDomain: "reastauranteapp.firebaseapp.com",
+          projectId: "reastauranteapp",
+          storageBucket: "reastauranteapp.appspot.com",
+          messagingSenderId: "15166663435",
+          appId: "1:15166663435:web:dbd9dadcb13e83a904500e",
+          measurementId: "G-H1N33YWYJ0"
+        };
 
-        // Función para llamar a la API
-        async function callScriptFunction(functionName, parameters) {
-          try {
-            console.log(`Llamando a ${functionName} con parámetros:`, parameters);
-            const response = await fetch(SCRIPT_URL, {
-              method: 'POST',
-              mode: 'no-cors', // Cambiado a 'no-cors'
-              headers: {
-                'Content-Type': 'text/plain', // Cambiado de vuelta a 'text/plain'
-              },
-              body: JSON.stringify({
-                function: functionName,
-                parameters: parameters
-              }),
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+
+        // Inicializar Firestore
+        const db = firebase.firestore();
+
+        const userName = sessionStorage.getItem('userName');
+        if (!userName) {
+            window.location.href = 'login.html';
+        }
+        console.log('Usuario actual:', userName);
+
+        let tasks = [];
+        let shifts = [];
+        let announcements = [];
+
+        // Cargar tareas del trabajador
+        function loadWorkerTasks() {
+          console.log("Cargando tareas para:", userName);
+          db.collection("tasks")
+            .where("assignedTo", "==", userName)
+            .get()
+            .then((querySnapshot) => {
+              tasks = [];
+              querySnapshot.forEach((doc) => {
+                tasks.push({ 
+                    id: doc.id, 
+                    ...doc.data(),
+                    createdAt: doc.data().createdAt || firebase.firestore.Timestamp.now()
+                });
+              });
+              console.log("Tareas cargadas:", tasks);
+              renderTasks();
+              checkPendingTasks();
+            })
+            .catch((error) => {
+              console.error("Error al cargar tareas:", error);
             });
-            console.log('Respuesta recibida:', response);
-            // Con 'no-cors', no podemos leer la respuesta, así que asumimos éxito si no hay error
-            return true;
-          } catch (error) {
-            console.error('Error al llamar a la API:', error);
-            return false;
-          }
         }
 
-        // Función para cargar tareas
-        async function loadTasks() {
-          const success = await callScriptFunction('getTasks', {});
-          if (success) {
-            console.log('Tareas cargadas exitosamente');
-            // Aquí deberías implementar una forma de obtener los datos reales
-            // Por ahora, simularemos que los datos se han cargado
-            renderTasks();
-          } else {
-            console.error('Error al cargar tareas');
-          }
+        // Marcar tarea como completada
+        function toggleTaskCompletion(id) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.completed = !task.completed;
+                db.collection("tasks").doc(id).update({
+                    completed: task.completed
+                })
+                .then(() => {
+                    console.log("Estado de la tarea actualizado");
+                    renderTasks();
+                })
+                .catch((error) => {
+                    console.error("Error al actualizar el estado de la tarea: ", error);
+                });
+            }
         }
 
-        // Función para actualizar una tarea (marcar como completada)
-        async function toggleTask(taskId) {
-          const success = await callScriptFunction('updateTask', { id: taskId, updates: { completed: true } });
-          if (success) {
-            console.log('Tarea actualizada exitosamente');
-            loadTasks(); // Recargar las tareas después de actualizar
-          } else {
-            console.error('Error al actualizar tarea');
-          }
-        }
+        // Cargar datos al iniciar
+        window.addEventListener('load', () => {
+          loadWorkerTasks();
+          loadShifts();
+          loadAnnouncements();
+          setupTaskListener();
+        });
 
-        // Función para cargar turnos
-        async function loadShifts() {
-          const success = await callScriptFunction('getShifts', {});
-          if (success) {
-            console.log('Turnos cargados exitosamente');
-            // Aquí deberías implementar una forma de obtener los datos reales
-            // Por ahora, simularemos que los datos se han cargado
-            renderShifts();
-          } else {
-            console.error('Error al cargar turnos');
-          }
-        }
-
-        // Función para cargar anuncios
-        async function loadAnnouncements() {
-          const success = await callScriptFunction('getAnnouncements', {});
-          if (success) {
-            console.log('Anuncios cargados exitosamente');
-            // Aquí deberías implementar una forma de obtener los datos reales
-            // Por ahora, simularemos que los datos se han cargado
-            renderAnnouncements();
-          } else {
-            console.error('Error al cargar anuncios');
-          }
-        }
-
-        // Modificar las funciones existentes para usar las nuevas funciones asíncronas
         function renderTasks() {
-          // ... código existente ...
-          loadTasks(); // Cargar tareas reales del servidor
+            const taskGrid = document.getElementById('taskGrid');
+            taskGrid.innerHTML = '';
+            console.log('Todas las tareas antes de filtrar:', tasks);
+            const uniqueTasks = Array.from(new Set(tasks.map(task => task.id)))
+                .map(id => tasks.find(task => task.id === id));
+            console.log('Tareas únicas para renderizar:', uniqueTasks);
+            uniqueTasks.forEach((task) => {
+                const button = document.createElement('button');
+                button.className = `task-item ${task.completed ? 'completed' : ''}`;
+                button.textContent = task.text;
+                button.onclick = () => toggleTaskCompletion(task.id);
+                taskGrid.appendChild(button);
+            });
+            checkPendingTasks();
         }
 
-        function renderShifts() {
-          // ... código existente ...
-          loadShifts(); // Cargar turnos reales del servidor
+        let calendar;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var calendarEl = document.getElementById('calendar');
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                },
+                locale: 'es',
+                buttonText: {
+                    today: 'Hoy',
+                    month: 'Mes',
+                    week: 'Semana',
+                    day: 'Día'
+                },
+                events: getShiftEvents(),
+                height: 'auto',
+                aspectRatio: 1.35,
+                expandRows: true,
+                slotMinTime: '00:00',
+                slotMaxTime: '24:00',
+                allDaySlot: false,
+                slotEventOverlap: false,
+                eventTimeFormat: {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    meridiem: 'short'
+                },
+                eventContent: function(arg) {
+                    return {
+                        html: `<div class="fc-event-title">${arg.event.title}</div>`
+                    };
+                },
+                eventDisplay: 'block'
+            });
+
+            // Renderiza el calendario inmediatamente
+            calendar.render();
+        });
+
+        function getShiftEvents() {
+            return shifts.map(shift => ({
+                id: shift.id,
+                title: `${shift.start} - ${shift.end}`, // Solo mostramos las horas de inicio y fin
+                start: `${shift.date}T${shift.start}`,
+                end: `${shift.date}T${shift.end}`,
+                allDay: false,
+                display: 'block', // Esto asegura que el evento ocupe todo el ancho de la celda
+                textColor: 'black', // Color del texto
+                backgroundColor: 'transparent', // Fondo transparente
+                borderColor: 'transparent' // Sin borde
+            }));
+        }
+
+        const defaultEmailAddresses = ["joelb.6foot@gmail.com", "jsanches.6foot@gmail.com"];
+
+        function prepareEmail() {
+            const userTasks = tasks.filter(task => task.assignedTo === userName);
+            const completedTasks = userTasks.filter(task => task.completed);
+            const incompleteTasks = userTasks.filter(task => !task.completed);
+
+            let emailBody = `Resumen de Tareas para ${userName}\n\n`;
+            emailBody += "Tareas Completadas:\n";
+            completedTasks.forEach(task => {
+                emailBody += `- ${task.text}\n`;
+            });
+            emailBody += "\nTareas Pendientes:\n";
+            incompleteTasks.forEach(task => {
+                emailBody += `- ${task.text}\n`;
+            });
+
+            const emailSubject = `Resumen de Tareas del Restaurante - ${userName}`;
+            const mailtoLink = `mailto:${defaultEmailAddresses.join(',')}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+
+            window.location.href = mailtoLink;
+        }
+
+        function logout() {
+            sessionStorage.removeItem('userName');
+            window.location.href = 'login.html';
+        }
+
+        function showSection(sectionId) {
+            const sections = document.querySelectorAll('section');
+            sections.forEach(section => {
+                if (section.id === sectionId) {
+                    section.style.display = 'block';
+                } else {
+                    section.style.display = 'none';
+                }
+            });
+
+            // Actualizar la navegación activa
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelector(`.nav-item[onclick*="${sectionId}"]`).classList.add('active');
+
+            // Renderizar contenido específico si es necesario
+            if (sectionId === 'tasksSection') {
+                renderTasks();
+            } else if (sectionId === 'announcementsSection') {
+                renderAnnouncements();
+            } else if (sectionId === 'shiftsSection') {
+                if (calendar) {
+                    setTimeout(() => {
+                        calendar.updateSize();
+                        calendar.render();
+                    }, 0);
+                }
+            }
         }
 
         function renderAnnouncements() {
-          // ... código existente ...
-          loadAnnouncements(); // Cargar anuncios reales del servidor
+            const announcementList = document.getElementById('announcementList');
+            announcementList.innerHTML = '';
+            if (announcements.length === 0) {
+                announcementList.innerHTML = '<p>No hay anuncios disponibles.</p>';
+            } else {
+                announcements.forEach((announcement) => {
+                    const div = document.createElement('div');
+                    div.className = 'announcement-item';
+                    div.innerHTML = `
+                        <div>
+                            <h3>${announcement.title}</h3>
+                            <p>${announcement.content}</p>
+                            <small>${new Date(announcement.date.seconds * 1000).toLocaleString()}</small>
+                        </div>
+                    `;
+                    announcementList.appendChild(div);
+                });
+            }
         }
 
-        // Modificar la función de inicio de sesión para cargar datos
-        window.addEventListener('load', () => {
-          // Código existente para verificar la sesión
-          const userName = sessionStorage.getItem('userName');
-          if (!userName) {
-            window.location.href = 'login.html';
-          }
-          console.log('Usuario actual:', userName);
+        function updateNotificationBadge(id, count) {
+            const badge = document.getElementById(id);
+            console.log(`Actualizando badge ${id} con count ${count}`);
+            if (count > 0) {
+                badge.style.display = 'inline';
+                badge.textContent = count;
+            } else {
+                badge.style.display = 'none';
+            }
+        }
 
-          // Cargar datos del servidor
-          loadTasks();
-          loadShifts();
-          loadAnnouncements();
+        function checkPendingTasks() {
+            const lastTaskCheckKey = `lastTaskCheck_${userName}`;
+            const lastTaskCheck = parseInt(localStorage.getItem(lastTaskCheckKey)) || 0;
+            console.log('Último check de tareas para', userName, ':', new Date(lastTaskCheck));
+            console.log('Todas las tareas:', tasks);
+            const newTasks = tasks.filter(task => {
+                const isAssigned = task.assignedTo === userName;
+                const isNotCompleted = !task.completed;
+                const taskDate = task.createdAt ? new Date(task.createdAt.seconds * 1000) : new Date(0);
+                const isNewer = taskDate > new Date(lastTaskCheck);
+                console.log(`Tarea ${task.id}: asignada=${isAssigned}, no completada=${isNotCompleted}, más nueva=${isNewer}, fecha tarea=${taskDate}, último check=${new Date(lastTaskCheck)}`);
+                return isAssigned && isNotCompleted && isNewer;
+            });
+            console.log('Tareas nuevas para', userName, ':', newTasks);
+            updateNotificationBadge('tasksBadge', newTasks.length);
+        }
+
+        function checkUpcomingShifts() {
+            const lastShiftCheck = localStorage.getItem('lastShiftCheck') || '0';
+            console.log('Turnos en localStorage:', shifts);
+            if (!Array.isArray(shifts)) {
+                console.error('shifts no es un array válido');
+                shifts = [];
+            }
+            const now = new Date();
+            const upcomingShifts = shifts.filter(shift => {
+                const shiftDate = new Date(shift.date);
+                return shift.employee === userName &&
+                       shiftDate > now &&
+                       shiftDate <= new Date(now.getTime() + 24 * 60 * 60 * 1000) &&
+                       new Date(shift.id) > new Date(parseInt(lastShiftCheck));
+            });
+            console.log('Turnos filtrados para', userName, ':', upcomingShifts);
+            updateNotificationBadge('shiftsBadge', upcomingShifts.length);
+        }
+
+        function updateShiftCheckStatus() {
+            const latestShiftId = Math.max(...shifts.map(shift => new Date(shift.date).getTime()));
+            localStorage.setItem('lastShiftCheck', latestShiftId.toString());
+            checkUpcomingShifts(); // Actualiza el estado de las notificaciones
+        }
+
+        // Call these functions when the page loads
+        window.addEventListener('load', () => {
+            console.log('Tareas cargadas:', tasks);
+            console.log('Turnos cargados:', shifts);
+            console.log('Anuncios cargados:', announcements);
+
+            const lastTaskCheckKey = `lastTaskCheck_${userName}`;
+            if (!localStorage.getItem(lastTaskCheckKey)) {
+                localStorage.setItem(lastTaskCheckKey, '0');
+            }
+
+            renderTasks();
+            checkPendingTasks();
+            checkUpcomingShifts();
         });
 
-        // Modificar la función prepareEmail si es necesario
-        function prepareEmail() {
-          // ... código existente ...
-          loadTasks(); // Recargar tareas después de enviar el email
+        // Diagnóstico
+        console.log('--- Diagnóstico ---');
+        console.log('Usuario actual:', userName);
+        console.log('Turnos en localStorage:', JSON.parse(localStorage.getItem('shifts')));
+        console.log('Último check de turnos:', localStorage.getItem('lastShiftCheck'));
+
+        // Simular checkUpcomingShifts
+        const lastShiftCheck = localStorage.getItem('lastShiftCheck') || '0';
+        const now = new Date();
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const diagnosticShifts = shifts.filter(shift => {
+            const shiftDate = new Date(shift.date);
+            return shift.employee === userName && 
+                   shiftDate >= now && 
+                   shiftDate < tomorrow && 
+                   new Date(shift.id) > new Date(parseInt(lastShiftCheck));
+        });
+
+        console.log('Turnos que deberían generar notificaciones:', diagnosticShifts);
+        console.log('--- Fin del diagnóstico ---');
+
+        if (!localStorage.getItem('lastShiftCheck')) {
+            localStorage.setItem('lastShiftCheck', '0');
+        }
+        console.log('lastShiftCheck inicial:', localStorage.getItem('lastShiftCheck'));
+
+        function setupTaskListener() {
+          db.collection("tasks")
+            .where("assignedTo", "==", userName)
+            .onSnapshot((snapshot) => {
+              snapshot.docChanges().forEach((change) => {
+                if (change.type === "added") {
+                  console.log("Nueva tarea asignada: ", change.doc.data());
+                  const newTask = { 
+                      id: change.doc.id, 
+                      ...change.doc.data(),
+                      createdAt: change.doc.data().createdAt || firebase.firestore.Timestamp.now()
+                  };
+                  const existingTaskIndex = tasks.findIndex(t => t.id === newTask.id);
+                  if (existingTaskIndex === -1) {
+                      tasks.push(newTask);
+                  } else {
+                      tasks[existingTaskIndex] = newTask;
+                  }
+                }
+                if (change.type === "modified") {
+                  console.log("Tarea modificada: ", change.doc.data());
+                  const index = tasks.findIndex(task => task.id === change.doc.id);
+                  if (index !== -1) {
+                    tasks[index] = { id: change.doc.id, ...change.doc.data() };
+                  }
+                }
+                if (change.type === "removed") {
+                  console.log("Tarea eliminada: ", change.doc.data());
+                  tasks = tasks.filter(task => task.id !== change.doc.id);
+                }
+              });
+              renderTasks();
+              checkPendingTasks();
+            });
         }
 
-        // Asegúrate de que todas las demás funciones existentes permanezcan en el script
-        // Por ejemplo: logout(), showSection(), updateNotificationBadge(), etc.
+        function loadShifts() {
+          console.log("Cargando turnos para:", userName);
+          db.collection("shifts")
+            .where("employee", "==", userName)
+            .get()
+            .then((querySnapshot) => {
+              shifts = [];
+              querySnapshot.forEach((doc) => {
+                shifts.push({ id: doc.id, ...doc.data() });
+              });
+              console.log("Turnos cargados:", shifts);
+              if (calendar) {
+                calendar.removeAllEvents();
+                calendar.addEventSource(getShiftEvents());
+                calendar.render();
+                calendar.updateSize();
+              }
+              checkUpcomingShifts();
+              updateShiftCheckStatus();
+            })
+            .catch((error) => {
+              console.error("Error al cargar turnos:", error);
+            });
+        }
+
+        function loadAnnouncements() {
+          console.log("Cargando anuncios");
+          db.collection("announcements")
+            .orderBy("date", "desc")
+            .get()
+            .then((querySnapshot) => {
+              announcements = [];
+              querySnapshot.forEach((doc) => {
+                announcements.push({ id: doc.id, ...doc.data() });
+              });
+              console.log("Anuncios cargados:", announcements);
+              renderAnnouncements();
+            })
+            .catch((error) => {
+              console.error("Error al cargar anuncios:", error);
+            });
+        }
+
+        // Llamar a esta función cuando se carga la página
+        window.addEventListener('load', () => {
+          // ... otras funciones de carga ...
+          setupTaskListener();
+        });
+
+        window.addEventListener('resize', function() {
+            if (calendar) {
+                calendar.updateSize();
+            }
+        });
     </script>
 </body>
 </html>
