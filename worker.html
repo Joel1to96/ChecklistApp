@@ -193,27 +193,25 @@
 
     <script>
         // URL de tu aplicación web de Google Apps Script
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbysFS8gJAmoL8nuNUINJIwADxMA4lb8buxpttHnG38F0kZJ8zktFKQiuiilY8rPK-m-/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzPx_KZxAl22TLEKIb_bsKvnh_3c5C5G9FHWdQ5YH36Rnj4JMYSNHO9N0PwiZ3w945a/exec';
 
         // Función para llamar a la API
         async function callScriptFunction(functionName, parameters) {
           try {
+            console.log(`Llamando a ${functionName} con parámetros:`, parameters);
             const response = await fetch(SCRIPT_URL, {
               method: 'POST',
-              mode: 'no-cors',
+              mode: 'no-cors', // Cambiado a 'no-cors'
               headers: {
-                'Content-Type': 'text/plain',
+                'Content-Type': 'text/plain', // Cambiado de vuelta a 'text/plain'
               },
               body: JSON.stringify({
                 function: functionName,
                 parameters: parameters
               }),
             });
-
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
+            console.log('Respuesta recibida:', response);
+            // Con 'no-cors', no podemos leer la respuesta, así que asumimos éxito si no hay error
             return true;
           } catch (error) {
             console.error('Error al llamar a la API:', error);
