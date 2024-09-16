@@ -204,7 +204,25 @@
 
     <button onclick="clearStorage()">Limpiar almacenamiento</button>
 
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyD2Ro-aX_BvF4FUQDYLqNOapc_0CZIh5Qg",
+            authDomain: "reastauranteapp.firebaseapp.com",
+            projectId: "reastauranteapp",
+            storageBucket: "reastauranteapp.appspot.com",
+            messagingSenderId: "15166663435",
+            appId: "1:15166663435:web:dbd9dadcb13e83a904500e",
+            measurementId: "G-H1N33YWYJ0"
+        };
+        
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        
+        // Inicializar Firestore
+        const db = firebase.firestore();
+
         let tasks = [];
         let shifts = [];
         let announcements = [];
@@ -254,16 +272,17 @@
         function getShiftEvents() {
             return shifts.map(shift => ({
                 id: shift.id,
-                title: `${shift.employee}: ${shift.start} - ${shift.end}`,
-                start: `${shift.date}T${shift.start}`,
-                end: `${shift.date}T${shift.end}`,
+                title: shift.employee ? `${shift.employee}: ${shift.start} - ${shift.end}` : 'Turno sin asignar',
+                start: shift.date && shift.start ? `${shift.date}T${shift.start}` : null,
+                end: shift.date && shift.end ? `${shift.date}T${shift.end}` : null,
                 color: getRandomColor(shift.employee),
                 allDay: false,
                 display: 'block'
-            }));
+            })).filter(event => event.start && event.end); // Filtra eventos sin fechas válidas
         }
 
         function getRandomColor(str) {
+            if (!str) return '#000000'; // Devuelve negro si str es undefined o vacío
             let hash = 0;
             for (let i = 0; i < str.length; i++) {
                 hash = str.charCodeAt(i) + ((hash << 5) - hash);
@@ -276,193 +295,200 @@
             return color;
         }
 
-        // URL de tu aplicación web de Google Apps Script
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzPx_KZxAl22TLEKIb_bsKvnh_3c5C5G9FHWdQ5YH36Rnj4JMYSNHO9N0PwiZ3w945a/exec';
-
-        // Función para llamar a la API
-        async function callScriptFunction(functionName, parameters) {
-          try {
-            console.log(`Llamando a ${functionName} con parámetros:`, parameters);
-            const response = await fetch(SCRIPT_URL, {
-              method: 'POST',
-              mode: 'cors',
-              credentials: 'include',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                function: functionName,
-                parameters: parameters
-              }),
+        // Cargar tareas
+        function loadTasks() {
+            db.collection("tasks").get().then((querySnapshot) => {
+                tasks = [];
+                querySnapshot.forEach((doc) => {
+                    tasks.push({ id: doc.id, ...doc.data() });
+                });
+                renderTasks();
             });
-            console.log('Respuesta recibida:', response);
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return await response.json();
-          } catch (error) {
-            console.error('Error al llamar a la API:', error);
-            return false;
-          }
         }
 
-        // Función para añadir una tarea
-        async function addTask() {
-          const text = document.getElementById('newTask').value.trim();
-          const assignedTo = document.getElementById('assignTo').value;
-          console.log('Intentando añadir tarea:', { text, assignedTo });
-          if (text) {
-            try {
-              const success = await callScriptFunction('addTask', { text, assignedTo });
-              console.log('Respuesta de addTask:', success);
-              if (success) {
-                console.log('Nueva tarea añadida exitosamente');
-                document.getElementById('newTask').value = '';
+        // Añadir tarea
+        function addTask() {
+            const newTaskInput = document.getElementById('newTask');
+            const assignToSelect = document.getElementById('assignTo');
+            const text = newTaskInput.value.trim();
+            const assignedTo = assignToSelect.value;
+            
+            if (text) {
+                db.collection("tasks").add({
+                    text: text,
+                    assignedTo: assignedTo,
+                    completed: false,
+                    createdAt: firebase.firestore.Timestamp.now()
+                })
+                .then((docRef) => {
+                    console.log("Tarea añadida con ID: ", docRef.id);
+                    newTaskInput.value = '';
+                    loadTasks();
+                })
+                .catch((error) => {
+                    console.error("Error al añadir tarea: ", error);
+                });
+            }
+        }
+
+        // Eliminar tarea
+        function deleteTask(id) {
+            db.collection("tasks").doc(id).delete().then(() => {
+                console.log("Tarea eliminada correctamente");
                 loadTasks();
-              } else {
-                console.error('Error al añadir tarea');
-              }
-            } catch (error) {
-              console.error('Error en addTask:', error);
+            }).catch((error) => {
+                console.error("Error al eliminar tarea: ", error);
+            });
+        }
+
+        // Cargar turnos
+        function loadShifts() {
+            db.collection("shifts").get().then((querySnapshot) => {
+                shifts = [];
+                querySnapshot.forEach((doc) => {
+                    shifts.push({ id: doc.id, ...doc.data() });
+                });
+                calendar.removeAllEvents();
+                calendar.addEventSource(getShiftEvents());
+            });
+        }
+
+        // Añadir turno
+        function addShift() {
+            const date = document.getElementById('shiftDate').value;
+            const start = document.getElementById('shiftStart').value;
+            const end = document.getElementById('shiftEnd').value;
+            const employee = document.getElementById('shiftEmployee').value;
+
+            if (date && start && end && employee) {
+                db.collection("shifts").add({
+                    date: date,
+                    start: start,
+                    end: end,
+                    employee: employee,
+                    createdAt: firebase.firestore.Timestamp.now()
+                })
+                .then((docRef) => {
+                    console.log("Turno añadido con ID: ", docRef.id);
+                    clearShiftInputs();
+                    loadShifts();
+                    newShiftsCount++;
+                    updateNotificationBadge('shiftsBadge', newShiftsCount);
+                })
+                .catch((error) => {
+                    console.error("Error al añadir turno: ", error);
+                });
             }
-          } else {
-            console.log('El texto de la tarea está vacío');
-          }
         }
 
-        // Función para cargar tareas
-        async function loadTasks() {
-          const success = await callScriptFunction('getTasks', {});
-          if (success) {
-            console.log('Tareas cargadas exitosamente');
-            renderTasks();
-          } else {
-            console.error('Error al cargar tareas');
-          }
+        // Eliminar turno
+        function deleteShift(id) {
+            db.collection("shifts").doc(id).delete().then(() => {
+                console.log("Turno eliminado correctamente");
+                loadShifts();
+            }).catch((error) => {
+                console.error("Error al eliminar turno: ", error);
+            });
         }
 
-        // Función para eliminar una tarea
-        async function deleteTask(index) {
-          const success = await callScriptFunction('deleteTask', { id: tasks[index].id });
-          if (success) {
-            console.log('Tarea eliminada exitosamente');
-            loadTasks();
-          } else {
-            console.error('Error al eliminar tarea');
-          }
+        // Cargar anuncios
+        function loadAnnouncements() {
+            db.collection("announcements").get().then((querySnapshot) => {
+                announcements = [];
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    announcements.push({ 
+                        id: doc.id, 
+                        ...data,
+                        date: data.date ? data.date : firebase.firestore.Timestamp.now()
+                    });
+                });
+                renderAnnouncements();
+            }).catch((error) => {
+                console.error("Error al cargar anuncios: ", error);
+            });
         }
 
-        // Función para añadir un turno
-        async function addShift() {
-          const date = document.getElementById('shiftDate').value;
-          const start = document.getElementById('shiftStart').value;
-          const end = document.getElementById('shiftEnd').value;
-          const employee = document.getElementById('shiftEmployee').value;
-          if (date && start && end && employee) {
-            const success = await callScriptFunction('addShift', { date, start, end, employee });
-            if (success) {
-              console.log('Nuevo turno añadido exitosamente');
-              clearShiftInputs();
-              loadShifts();
-            } else {
-              console.error('Error al añadir turno');
+        // Añadir anuncio
+        function addAnnouncement() {
+            const title = document.getElementById('announcementTitle').value.trim();
+            const content = document.getElementById('announcementContent').value.trim();
+            if (title && content) {
+                db.collection("announcements").add({
+                    title: title,
+                    content: content,
+                    date: firebase.firestore.Timestamp.now()
+                })
+                .then((docRef) => {
+                    console.log("Anuncio añadido con ID: ", docRef.id);
+                    clearAnnouncementInputs();
+                    loadAnnouncements();
+                    newAnnouncementsCount++;
+                    updateNotificationBadge('announcementsBadge', newAnnouncementsCount);
+                })
+                .catch((error) => {
+                    console.error("Error al añadir anuncio: ", error);
+                });
             }
-          }
         }
 
-        // Función para cargar turnos
-        async function loadShifts() {
-          const success = await callScriptFunction('getShifts', {});
-          if (success) {
-            console.log('Turnos cargados exitosamente');
-            renderShifts();
-          } else {
-            console.error('Error al cargar turnos');
-          }
-        }
-
-        // Función para eliminar un turno
-        async function deleteShift(shiftId) {
-          const success = await callScriptFunction('deleteShift', { id: shiftId });
-          if (success) {
-            console.log('Turno eliminado exitosamente');
-            loadShifts();
-          } else {
-            console.error('Error al eliminar turno');
-          }
-        }
-
-        // Función para añadir un anuncio
-        async function addAnnouncement() {
-          const title = document.getElementById('announcementTitle').value.trim();
-          const content = document.getElementById('announcementContent').value.trim();
-          if (title && content) {
-            const success = await callScriptFunction('addAnnouncement', { title, content });
-            if (success) {
-              console.log('Nuevo anuncio añadido exitosamente');
-              clearAnnouncementInputs();
-              loadAnnouncements();
-            } else {
-              console.error('Error al añadir anuncio');
-            }
-          }
-        }
-
-        // Función para cargar anuncios
-        async function loadAnnouncements() {
-          const success = await callScriptFunction('getAnnouncements', {});
-          if (success) {
-            console.log('Anuncios cargados exitosamente');
-            renderAnnouncements();
-          } else {
-            console.error('Error al cargar anuncios');
-          }
-        }
-
-        // Función para eliminar un anuncio
-        async function deleteAnnouncement(index) {
-          const success = await callScriptFunction('deleteAnnouncement', { id: announcements[index].id });
-          if (success) {
-            console.log('Anuncio eliminado exitosamente');
-            loadAnnouncements();
-          } else {
-            console.error('Error al eliminar anuncio');
-          }
+        // Eliminar anuncio
+        function deleteAnnouncement(id) {
+            db.collection("announcements").doc(id).delete().then(() => {
+                console.log("Anuncio eliminado correctamente");
+                loadAnnouncements();
+            }).catch((error) => {
+                console.error("Error al eliminar anuncio: ", error);
+            });
         }
 
         function renderTasks() {
             const taskList = document.getElementById('taskList');
             taskList.innerHTML = '';
-            tasks.forEach((task, index) => {
+            tasks.forEach((task) => {
                 const li = document.createElement('li');
                 li.className = 'task-item';
                 li.innerHTML = `
                     <span>${task.text} - Asignado a: ${task.assignedTo}</span>
-                    <button onclick="deleteTask(${index})">Eliminar</button>
+                    <button onclick="deleteTask('${task.id}')">Eliminar</button>
                 `;
                 taskList.appendChild(li);
             });
         }
 
-        function renderShifts() {
-            // ... código existente ...
-            loadShifts(); // Cargar turnos reales del servidor
-        }
-
         function renderAnnouncements() {
             const announcementList = document.getElementById('announcementList');
             announcementList.innerHTML = '';
-            announcements.forEach((announcement, index) => {
+            announcements.forEach((announcement) => {
                 const li = document.createElement('li');
                 li.className = 'announcement-item';
+                let dateString;
+                if (announcement.date && typeof announcement.date.toDate === 'function') {
+                    dateString = announcement.date.toDate().toLocaleString();
+                } else if (announcement.date instanceof Date) {
+                    dateString = announcement.date.toLocaleString();
+                } else {
+                    dateString = 'Fecha no disponible';
+                }
                 li.innerHTML = `
                     <h3>${announcement.title}</h3>
                     <p>${announcement.content}</p>
-                    <small>${new Date(announcement.date).toLocaleString()}</small>
-                    <button onclick="deleteAnnouncement(${index})">Eliminar</button>
+                    <small>${dateString}</small>
+                    <button onclick="deleteAnnouncement('${announcement.id}')">Eliminar</button>
                 `;
                 announcementList.appendChild(li);
             });
+        }
+
+        function clearShiftInputs() {
+            document.getElementById('shiftDate').value = '';
+            document.getElementById('shiftStart').value = '';
+            document.getElementById('shiftEnd').value = '';
+        }
+
+        function clearAnnouncementInputs() {
+            document.getElementById('announcementTitle').value = '';
+            document.getElementById('announcementContent').value = '';
         }
 
         function logout() {
@@ -500,33 +526,37 @@
             }
         }
 
+        // Cargar todos los datos al iniciar
         window.addEventListener('load', () => {
+            loadTasks();
+            loadShifts();
+            loadAnnouncements();
             newAnnouncementsCount = 0;
             newTasksCount = 0;
             newShiftsCount = 0;
             updateNotificationBadge('announcementsBadge', 0);
             updateNotificationBadge('tasksBadge', 0);
             updateNotificationBadge('shiftsBadge', 0);
-            loadTasks();
-            loadShifts();
-            loadAnnouncements();
         });
 
         function clearStorage() {
-            localStorage.clear();
-            console.log('Almacenamiento local limpiado');
+            db.collection("tasks").get().then((querySnapshot) => {
+                querySnapshot.forEach((doc) => {
+                    db.collection("tasks").doc(doc.id).delete();
+                });
+            });
+            db.collection("shifts").get().then((querySnapshot) => {
+                querySnapshot.forEach((doc) => {
+                    db.collection("shifts").doc(doc.id).delete();
+                });
+            });
+            db.collection("announcements").get().then((querySnapshot) => {
+                querySnapshot.forEach((doc) => {
+                    db.collection("announcements").doc(doc.id).delete();
+                });
+            });
+            console.log('Almacenamiento limpiado');
             location.reload();
-        }
-
-        function clearShiftInputs() {
-            document.getElementById('shiftDate').value = '';
-            document.getElementById('shiftStart').value = '';
-            document.getElementById('shiftEnd').value = '';
-        }
-
-        function clearAnnouncementInputs() {
-            document.getElementById('announcementTitle').value = '';
-            document.getElementById('announcementContent').value = '';
         }
     </script>
 </body>
