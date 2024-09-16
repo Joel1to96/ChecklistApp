@@ -205,9 +205,9 @@
     <button onclick="clearStorage()">Limpiar almacenamiento</button>
 
     <script>
-        let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
-        let shifts = JSON.parse(localStorage.getItem('shifts')) || [];
-        let announcements = JSON.parse(localStorage.getItem('announcements')) || [];
+        let tasks = [];
+        let shifts = [];
+        let announcements = [];
 
         let newAnnouncementsCount = 0;
         let newTasksCount = 0;
@@ -276,45 +276,158 @@
             return color;
         }
 
-        function addShift() {
-            const date = document.getElementById('shiftDate').value;
-            const start = document.getElementById('shiftStart').value;
-            const end = document.getElementById('shiftEnd').value;
-            const employee = document.getElementById('shiftEmployee').value;
+        // URL de tu aplicación web de Google Apps Script
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbysFS8gJAmoL8nuNUINJIwADxMA4lb8buxpttHnG38F0kZJ8zktFKQiuiilY8rPK-m-/exec';
 
-            if (date && start && end && employee) {
-                const newShift = {
-                    id: Date.now(),
-                    date: date,
-                    start: start,
-                    end: end,
-                    employee: employee
-                };
-                shifts.push(newShift);
-                saveShifts();
-                calendar.removeAllEvents();
-                calendar.addEventSource(getShiftEvents());
-                clearShiftInputs();
-                
-                newShiftsCount++;
-                updateNotificationBadge('shiftsBadge', newShiftsCount);
+        // Función para llamar a la API
+        async function callScriptFunction(functionName, parameters) {
+          try {
+            console.log(`Llamando a ${functionName} con parámetros:`, parameters);
+            const response = await fetch(SCRIPT_URL, {
+              method: 'POST',
+              mode: 'cors',
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                function: functionName,
+                parameters: parameters
+              }),
+            });
+            console.log('Respuesta recibida:', response);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
             }
+            return await response.json();
+          } catch (error) {
+            console.error('Error al llamar a la API:', error);
+            return false;
+          }
         }
 
-        function deleteShift(shiftId) {
-            shifts = shifts.filter(shift => shift.id !== shiftId);
-            saveShifts();
+        // Función para añadir una tarea
+        async function addTask() {
+          const text = document.getElementById('newTask').value.trim();
+          const assignedTo = document.getElementById('assignTo').value;
+          console.log('Intentando añadir tarea:', { text, assignedTo });
+          if (text) {
+            try {
+              const success = await callScriptFunction('addTask', { text, assignedTo });
+              console.log('Respuesta de addTask:', success);
+              if (success) {
+                console.log('Nueva tarea añadida exitosamente');
+                document.getElementById('newTask').value = '';
+                loadTasks();
+              } else {
+                console.error('Error al añadir tarea');
+              }
+            } catch (error) {
+              console.error('Error en addTask:', error);
+            }
+          } else {
+            console.log('El texto de la tarea está vacío');
+          }
         }
 
-        function saveShifts() {
-            localStorage.setItem('shifts', JSON.stringify(shifts));
-            console.log('Turnos guardados:', JSON.parse(localStorage.getItem('shifts')));
+        // Función para cargar tareas
+        async function loadTasks() {
+          const success = await callScriptFunction('getTasks', {});
+          if (success) {
+            console.log('Tareas cargadas exitosamente');
+            renderTasks();
+          } else {
+            console.error('Error al cargar tareas');
+          }
         }
 
-        function clearShiftInputs() {
-            document.getElementById('shiftDate').value = '';
-            document.getElementById('shiftStart').value = '';
-            document.getElementById('shiftEnd').value = '';
+        // Función para eliminar una tarea
+        async function deleteTask(index) {
+          const success = await callScriptFunction('deleteTask', { id: tasks[index].id });
+          if (success) {
+            console.log('Tarea eliminada exitosamente');
+            loadTasks();
+          } else {
+            console.error('Error al eliminar tarea');
+          }
+        }
+
+        // Función para añadir un turno
+        async function addShift() {
+          const date = document.getElementById('shiftDate').value;
+          const start = document.getElementById('shiftStart').value;
+          const end = document.getElementById('shiftEnd').value;
+          const employee = document.getElementById('shiftEmployee').value;
+          if (date && start && end && employee) {
+            const success = await callScriptFunction('addShift', { date, start, end, employee });
+            if (success) {
+              console.log('Nuevo turno añadido exitosamente');
+              clearShiftInputs();
+              loadShifts();
+            } else {
+              console.error('Error al añadir turno');
+            }
+          }
+        }
+
+        // Función para cargar turnos
+        async function loadShifts() {
+          const success = await callScriptFunction('getShifts', {});
+          if (success) {
+            console.log('Turnos cargados exitosamente');
+            renderShifts();
+          } else {
+            console.error('Error al cargar turnos');
+          }
+        }
+
+        // Función para eliminar un turno
+        async function deleteShift(shiftId) {
+          const success = await callScriptFunction('deleteShift', { id: shiftId });
+          if (success) {
+            console.log('Turno eliminado exitosamente');
+            loadShifts();
+          } else {
+            console.error('Error al eliminar turno');
+          }
+        }
+
+        // Función para añadir un anuncio
+        async function addAnnouncement() {
+          const title = document.getElementById('announcementTitle').value.trim();
+          const content = document.getElementById('announcementContent').value.trim();
+          if (title && content) {
+            const success = await callScriptFunction('addAnnouncement', { title, content });
+            if (success) {
+              console.log('Nuevo anuncio añadido exitosamente');
+              clearAnnouncementInputs();
+              loadAnnouncements();
+            } else {
+              console.error('Error al añadir anuncio');
+            }
+          }
+        }
+
+        // Función para cargar anuncios
+        async function loadAnnouncements() {
+          const success = await callScriptFunction('getAnnouncements', {});
+          if (success) {
+            console.log('Anuncios cargados exitosamente');
+            renderAnnouncements();
+          } else {
+            console.error('Error al cargar anuncios');
+          }
+        }
+
+        // Función para eliminar un anuncio
+        async function deleteAnnouncement(index) {
+          const success = await callScriptFunction('deleteAnnouncement', { id: announcements[index].id });
+          if (success) {
+            console.log('Anuncio eliminado exitosamente');
+            loadAnnouncements();
+          } else {
+            console.error('Error al eliminar anuncio');
+          }
         }
 
         function renderTasks() {
@@ -331,57 +444,9 @@
             });
         }
 
-        function addTask() {
-            const newTaskInput = document.getElementById('newTask');
-            const assignToSelect = document.getElementById('assignTo');
-            const text = newTaskInput.value.trim();
-            const assignedTo = assignToSelect.value;
-            if (text) {
-                const newTask = {
-                    id: Date.now().toString(),
-                    text: text,
-                    assignedTo: assignedTo,
-                    completed: false
-                };
-                tasks.push(newTask);
-                saveTasks();
-                newTaskInput.value = '';
-                renderTasks();
-                
-                newTasksCount++;
-                updateNotificationBadge('tasksBadge', newTasksCount);
-            }
-        }
-
-        function deleteTask(index) {
-            tasks.splice(index, 1);
-            saveTasks();
-            renderTasks();
-        }
-
-        function saveTasks() {
-            localStorage.setItem('tasks', JSON.stringify(tasks));
-            console.log('Tareas guardadas:', JSON.parse(localStorage.getItem('tasks')));
-        }
-
-        function addAnnouncement() {
-            const title = document.getElementById('announcementTitle').value.trim();
-            const content = document.getElementById('announcementContent').value.trim();
-            if (title && content) {
-                const newAnnouncement = {
-                    id: Date.now().toString(),
-                    title: title,
-                    content: content,
-                    date: new Date().toISOString()
-                };
-                announcements.push(newAnnouncement);
-                saveAnnouncements();
-                renderAnnouncements();
-                clearAnnouncementInputs();
-                
-                newAnnouncementsCount++;
-                updateNotificationBadge('announcementsBadge', newAnnouncementsCount);
-            }
+        function renderShifts() {
+            // ... código existente ...
+            loadShifts(); // Cargar turnos reales del servidor
         }
 
         function renderAnnouncements() {
@@ -400,35 +465,15 @@
             });
         }
 
-        function deleteAnnouncement(index) {
-            announcements.splice(index, 1);
-            saveAnnouncements();
-            renderAnnouncements();
-        }
-
-        function saveAnnouncements() {
-            localStorage.setItem('announcements', JSON.stringify(announcements));
-        }
-
-        function clearAnnouncementInputs() {
-            document.getElementById('announcementTitle').value = '';
-            document.getElementById('announcementContent').value = '';
-        }
-
         function logout() {
-            localStorage.setItem('lastShiftCheck', '0');
-            localStorage.removeItem('lastTaskCheck');
-            localStorage.removeItem('lastAnnouncementDate');
             sessionStorage.removeItem('userName');
             window.location.href = 'login.html';
         }
 
         function showSection(sectionId, clickedItem) {
-            // Ocultar todas las secciones y desactivar todos los items de navegación
             document.querySelectorAll('.section').forEach(section => section.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
             
-            // Mostrar la sección seleccionada y activar el item de navegación correspondiente
             document.getElementById(sectionId).classList.add('active');
             clickedItem.classList.add('active');
             
@@ -455,7 +500,6 @@
             }
         }
 
-        // Add this function to reset notification counts when the page loads
         window.addEventListener('load', () => {
             newAnnouncementsCount = 0;
             newTasksCount = 0;
@@ -463,15 +507,26 @@
             updateNotificationBadge('announcementsBadge', 0);
             updateNotificationBadge('tasksBadge', 0);
             updateNotificationBadge('shiftsBadge', 0);
+            loadTasks();
+            loadShifts();
+            loadAnnouncements();
         });
-
-        renderTasks();
-        renderAnnouncements();
 
         function clearStorage() {
             localStorage.clear();
             console.log('Almacenamiento local limpiado');
             location.reload();
+        }
+
+        function clearShiftInputs() {
+            document.getElementById('shiftDate').value = '';
+            document.getElementById('shiftStart').value = '';
+            document.getElementById('shiftEnd').value = '';
+        }
+
+        function clearAnnouncementInputs() {
+            document.getElementById('announcementTitle').value = '';
+            document.getElementById('announcementContent').value = '';
         }
     </script>
 </body>
