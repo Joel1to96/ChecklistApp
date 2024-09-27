@@ -207,32 +207,32 @@
             <button onclick="logout()">Cerrar Sesión</button>
         </div>
 
-        <section id="announcementsSection" class="section active">
+        <div id="announcementsSection" class="section active">
             <h2>Anuncios y Novedades</h2>
             <div id="announcementList" class="announcement-list"></div>
-        </section>
+        </div>
 
-        <section id="tasksSection" class="section">
+        <div id="tasksSection" class="section">
             <h2>Mis Tareas</h2>
             <div id="taskGrid" class="task-grid"></div>
             <button onclick="prepareEmail()">Enviar Resumen por Correo</button>
-        </section>
+        </div>
 
-        <section id="shiftsSection" class="section">
+        <div id="shiftsSection" class="section">
             <h2>Mis Turnos</h2>
             <div id="calendar"></div>
-        </section>
+        </div>
     </div>
 
     <nav class="nav-bar">
-        <a href="#" class="nav-item active" onclick="showSection('announcementsSection')">
+        <a href="#" class="nav-item active" onclick="showSection('announcementsSection', this)">
             Anuncios
         </a>
-        <a href="#" class="nav-item" onclick="showSection('tasksSection')">
+        <a href="#" class="nav-item" onclick="showSection('tasksSection', this)">
             Tareas
             <span class="notification-badge" id="tasksBadge"></span>
         </a>
-        <a href="#" class="nav-item" onclick="showSection('shiftsSection')">
+        <a href="#" class="nav-item" onclick="showSection('shiftsSection', this)">
             Turnos
             <span class="notification-badge" id="shiftsBadge"></span>
         </a>
@@ -337,8 +337,8 @@
                 } else if (task.assignBy === 'date' && task.assignedDate) {
                     return task.assignedDate === todayDateString;
                 } else {
-                    // Si no hay asignación específica, mostrar la tarea
-                    return false; // Cambiado a false para no mostrar tareas sin asignación de día
+                    // Si no hay asignación específica, no mostrar la tarea
+                    return false;
                 }
             });
 
@@ -440,8 +440,8 @@
             window.location.href = 'login.html';
         }
 
-        function showSection(sectionId) {
-            const sections = document.querySelectorAll('section');
+        function showSection(sectionId, clickedItem) {
+            const sections = document.querySelectorAll('.section');
             sections.forEach(section => {
                 if (section.id === sectionId) {
                     section.classList.add('active');
@@ -454,7 +454,7 @@
             document.querySelectorAll('.nav-item').forEach(item => {
                 item.classList.remove('active');
             });
-            document.querySelector(`.nav-item[onclick*="${sectionId}"]`).classList.add('active');
+            clickedItem.classList.add('active');
 
             // Renderizar contenido específico si es necesario
             if (sectionId === 'tasksSection') {
@@ -552,22 +552,6 @@
             localStorage.setItem('lastShiftCheck', latestShiftId.toString());
             checkUpcomingShifts(); // Actualiza el estado de las notificaciones
         }
-
-        // Call these functions when the page loads
-        window.addEventListener('load', () => {
-            console.log('Tareas cargadas:', tasks);
-            console.log('Turnos cargados:', shifts);
-            console.log('Anuncios cargados:', announcements);
-
-            const lastTaskCheckKey = `lastTaskCheck_${userName}`;
-            if (!localStorage.getItem(lastTaskCheckKey)) {
-                localStorage.setItem(lastTaskCheckKey, '0');
-            }
-
-            renderTasks();
-            checkPendingTasks();
-            checkUpcomingShifts();
-        });
 
         function setupTaskListener() {
           db.collection("tasks")
