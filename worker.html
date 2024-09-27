@@ -207,25 +207,25 @@
             <button onclick="logout()">Cerrar Sesión</button>
         </div>
 
-        <section id="announcementsSection">
+        <section id="announcementsSection" class="section active">
             <h2>Anuncios y Novedades</h2>
             <div id="announcementList" class="announcement-list"></div>
         </section>
 
-        <section id="tasksSection" style="display: none;">
+        <section id="tasksSection" class="section">
             <h2>Mis Tareas</h2>
             <div id="taskGrid" class="task-grid"></div>
             <button onclick="prepareEmail()">Enviar Resumen por Correo</button>
         </section>
 
-        <section id="shiftsSection" style="display: none;">
+        <section id="shiftsSection" class="section">
             <h2>Mis Turnos</h2>
             <div id="calendar"></div>
         </section>
     </div>
 
     <nav class="nav-bar">
-        <a href="#" class="nav-item" onclick="showSection('announcementsSection')">
+        <a href="#" class="nav-item active" onclick="showSection('announcementsSection')">
             Anuncios
         </a>
         <a href="#" class="nav-item" onclick="showSection('tasksSection')">
@@ -322,8 +322,28 @@
             const taskGrid = document.getElementById('taskGrid');
             taskGrid.innerHTML = '';
             console.log('Todas las tareas antes de filtrar:', tasks);
-            const uniqueTasks = Array.from(new Set(tasks.map(task => task.id)))
-                .map(id => tasks.find(task => task.id === id));
+
+            const today = new Date();
+            const todayDayOfWeek = today.toLocaleDateString('es-ES', { weekday: 'long' });
+            const todayDateString = today.toISOString().split('T')[0]; // 'YYYY-MM-DD'
+
+            function capitalizeFirstLetter(string) {
+                return string.charAt(0).toUpperCase() + string.slice(1);
+            }
+
+            const filteredTasks = tasks.filter(task => {
+                if (task.assignBy === 'dayOfWeek' && task.assignedDays) {
+                    return task.assignedDays.includes(capitalizeFirstLetter(todayDayOfWeek));
+                } else if (task.assignBy === 'date' && task.assignedDate) {
+                    return task.assignedDate === todayDateString;
+                } else {
+                    // Si no hay asignación específica, mostrar la tarea
+                    return false; // Cambiado a false para no mostrar tareas sin asignación de día
+                }
+            });
+
+            const uniqueTasks = Array.from(new Set(filteredTasks.map(task => task.id)))
+                .map(id => filteredTasks.find(task => task.id === id));
             console.log('Tareas únicas para renderizar:', uniqueTasks);
             uniqueTasks.forEach((task) => {
                 const button = document.createElement('button');
@@ -424,9 +444,9 @@
             const sections = document.querySelectorAll('section');
             sections.forEach(section => {
                 if (section.id === sectionId) {
-                    section.style.display = 'block';
+                    section.classList.add('active');
                 } else {
-                    section.style.display = 'none';
+                    section.classList.remove('active');
                 }
             });
 
@@ -460,11 +480,19 @@
                 announcements.forEach((announcement) => {
                     const div = document.createElement('div');
                     div.className = 'announcement-item';
+                    let dateString;
+                    if (announcement.date && typeof announcement.date.toDate === 'function') {
+                        dateString = announcement.date.toDate().toLocaleString();
+                    } else if (announcement.date instanceof Date) {
+                        dateString = announcement.date.toLocaleString();
+                    } else {
+                        dateString = 'Fecha no disponible';
+                    }
                     div.innerHTML = `
                         <div>
                             <h3>${announcement.title}</h3>
                             <p>${announcement.content}</p>
-                            <small>${new Date(announcement.date.seconds * 1000).toLocaleString()}</small>
+                            <small>${dateString}</small>
                         </div>
                     `;
                     announcementList.appendChild(div);
@@ -540,34 +568,6 @@
             checkPendingTasks();
             checkUpcomingShifts();
         });
-
-        // Diagnóstico
-        console.log('--- Diagnóstico ---');
-        console.log('Usuario actual:', userName);
-        console.log('Turnos en localStorage:', JSON.parse(localStorage.getItem('shifts')));
-        console.log('Último check de turnos:', localStorage.getItem('lastShiftCheck'));
-
-        // Simular checkUpcomingShifts
-        const lastShiftCheck = localStorage.getItem('lastShiftCheck') || '0';
-        const now = new Date();
-        const tomorrow = new Date(now);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-
-        const diagnosticShifts = shifts.filter(shift => {
-            const shiftDate = new Date(shift.date);
-            return shift.employee === userName && 
-                   shiftDate >= now && 
-                   shiftDate < tomorrow && 
-                   new Date(shift.id) > new Date(parseInt(lastShiftCheck));
-        });
-
-        console.log('Turnos que deberían generar notificaciones:', diagnosticShifts);
-        console.log('--- Fin del diagnóstico ---');
-
-        if (!localStorage.getItem('lastShiftCheck')) {
-            localStorage.setItem('lastShiftCheck', '0');
-        }
-        console.log('lastShiftCheck inicial:', localStorage.getItem('lastShiftCheck'));
 
         function setupTaskListener() {
           db.collection("tasks")
@@ -647,12 +647,6 @@
               console.error("Error al cargar anuncios:", error);
             });
         }
-
-        // Llamar a esta función cuando se carga la página
-        window.addEventListener('load', () => {
-          // ... otras funciones de carga ...
-          setupTaskListener();
-        });
 
         window.addEventListener('resize', function() {
             if (calendar) {
