@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <!-- ... (mantengo el contenido original del head) ... -->
+    <!-- ... (contenido original del head) ... -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Administración del Restaurante</title>
@@ -100,6 +100,7 @@
             display: flex;
             justify-content: space-around;
             padding: 10px 0;
+            z-index: 1000;
         }
         .nav-item {
             color: white;
@@ -108,6 +109,7 @@
             border-radius: 5px;
             transition: background-color 0.3s;
             position: relative;
+            cursor: pointer;
         }
         .nav-item:hover, .nav-item.active {
             background-color: #34495e;
@@ -315,7 +317,100 @@
             });
         });
 
-        // Modificación de la función addTask
+        // Función para mostrar la sección correspondiente y actualizar la navegación
+        function showSection(sectionId, clickedItem) {
+            // Ocultar todas las secciones
+            document.querySelectorAll('.section').forEach(section => section.classList.remove('active'));
+            // Mostrar la sección seleccionada
+            document.getElementById(sectionId).classList.add('active');
+
+            // Actualizar la navegación activa
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            clickedItem.classList.add('active');
+
+            // Si es la sección de turnos, renderizar el calendario
+            if (sectionId === 'shiftsSection') {
+                setTimeout(() => {
+                    calendar.render();
+                }, 0);
+            }
+        }
+
+        // Función para inicializar el calendario
+        document.addEventListener('DOMContentLoaded', function() {
+            var calendarEl = document.getElementById('calendar');
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                },
+                locale: 'es',
+                buttonText: {
+                    today: 'Hoy',
+                    month: 'Mes',
+                    week: 'Semana',
+                    day: 'Día'
+                },
+                events: getShiftEvents(),
+                eventClick: function(info) {
+                    if (confirm(`¿Deseas eliminar el turno de ${info.event.title}?`)) {
+                        deleteShift(info.event.id);
+                        info.event.remove();
+                    }
+                },
+                height: 'auto',
+                eventTimeFormat: {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    meridiem: 'short'
+                },
+                displayEventTime: false,
+                displayEventEnd: false,
+                eventDisplay: 'block'
+            });
+            calendar.render();
+        });
+
+        function getShiftEvents() {
+            return shifts.map(shift => ({
+                id: shift.id,
+                title: shift.employee ? `${shift.employee}: ${shift.start} - ${shift.end}` : 'Turno sin asignar',
+                start: shift.date && shift.start ? `${shift.date}T${shift.start}` : null,
+                end: shift.date && shift.end ? `${shift.date}T${shift.end}` : null,
+                color: getRandomColor(shift.employee),
+                allDay: false,
+                display: 'block'
+            })).filter(event => event.start && event.end); // Filtra eventos sin fechas válidas
+        }
+
+        function getRandomColor(str) {
+            if (!str) return '#000000'; // Devuelve negro si str es undefined o vacío
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            let color = '#';
+            for (let i = 0; i < 3; i++) {
+                const value = (hash >> (i * 8)) & 0xFF;
+                color += ('00' + value.toString(16)).substr(-2);
+            }
+            return color;
+        }
+
+        // Cargar tareas
+        function loadTasks() {
+            db.collection("tasks").get().then((querySnapshot) => {
+                tasks = [];
+                querySnapshot.forEach((doc) => {
+                    tasks.push({ id: doc.id, ...doc.data() });
+                });
+                renderTasks();
+            });
+        }
+
+        // Añadir tarea
         function addTask() {
             const newTaskInput = document.getElementById('newTask');
             const assignToSelect = document.getElementById('assignTo');
@@ -369,7 +464,121 @@
             }
         }
 
-        // Modificación de la función renderTasks para mostrar las nuevas tareas con detalles
+        // Eliminar tarea
+        function deleteTask(id) {
+            db.collection("tasks").doc(id).delete().then(() => {
+                console.log("Tarea eliminada correctamente");
+                loadTasks();
+            }).catch((error) => {
+                console.error("Error al eliminar tarea: ", error);
+            });
+        }
+
+        // Cargar turnos
+        function loadShifts() {
+            db.collection("shifts").get().then((querySnapshot) => {
+                shifts = [];
+                querySnapshot.forEach((doc) => {
+                    shifts.push({ id: doc.id, ...doc.data() });
+                });
+                calendar.removeAllEvents();
+                calendar.addEventSource(getShiftEvents());
+            });
+        }
+
+        // Añadir turno
+        function addShift() {
+            const date = document.getElementById('shiftDate').value;
+            const start = document.getElementById('shiftStart').value;
+            const end = document.getElementById('shiftEnd').value;
+            const employee = document.getElementById('shiftEmployee').value;
+
+            if (date && start && end && employee) {
+                db.collection("shifts").add({
+                    date: date,
+                    start: start,
+                    end: end,
+                    employee: employee,
+                    createdAt: firebase.firestore.Timestamp.now()
+                })
+                .then((docRef) => {
+                    console.log("Turno añadido con ID: ", docRef.id);
+                    clearShiftInputs();
+                    loadShifts();
+                    newShiftsCount++;
+                    updateNotificationBadge('shiftsBadge', newShiftsCount);
+                })
+                .catch((error) => {
+                    console.error("Error al añadir turno: ", error);
+                });
+            } else {
+                alert('Por favor, completa todos los campos requeridos.');
+            }
+        }
+
+        // Eliminar turno
+        function deleteShift(id) {
+            db.collection("shifts").doc(id).delete().then(() => {
+                console.log("Turno eliminado correctamente");
+                loadShifts();
+            }).catch((error) => {
+                console.error("Error al eliminar turno: ", error);
+            });
+        }
+
+        // Cargar anuncios
+        function loadAnnouncements() {
+            db.collection("announcements").get().then((querySnapshot) => {
+                announcements = [];
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    announcements.push({ 
+                        id: doc.id, 
+                        ...data,
+                        date: data.date ? data.date : firebase.firestore.Timestamp.now()
+                    });
+                });
+                renderAnnouncements();
+            }).catch((error) => {
+                console.error("Error al cargar anuncios: ", error);
+            });
+        }
+
+        // Añadir anuncio
+        function addAnnouncement() {
+            const title = document.getElementById('announcementTitle').value.trim();
+            const content = document.getElementById('announcementContent').value.trim();
+            if (title && content) {
+                db.collection("announcements").add({
+                    title: title,
+                    content: content,
+                    date: firebase.firestore.Timestamp.now()
+                })
+                .then((docRef) => {
+                    console.log("Anuncio añadido con ID: ", docRef.id);
+                    clearAnnouncementInputs();
+                    loadAnnouncements();
+                    newAnnouncementsCount++;
+                    updateNotificationBadge('announcementsBadge', newAnnouncementsCount);
+                })
+                .catch((error) => {
+                    console.error("Error al añadir anuncio: ", error);
+                });
+            } else {
+                alert('Por favor, completa todos los campos requeridos.');
+            }
+        }
+
+        // Eliminar anuncio
+        function deleteAnnouncement(id) {
+            db.collection("announcements").doc(id).delete().then(() => {
+                console.log("Anuncio eliminado correctamente");
+                loadAnnouncements();
+            }).catch((error) => {
+                console.error("Error al eliminar anuncio: ", error);
+            });
+        }
+
         function renderTasks() {
             const taskList = document.getElementById('taskList');
             taskList.innerHTML = '';
@@ -390,18 +599,56 @@
             });
         }
 
-        // Modificación de la función loadTasks para cargar los nuevos campos
-        function loadTasks() {
-            db.collection("tasks").get().then((querySnapshot) => {
-                tasks = [];
-                querySnapshot.forEach((doc) => {
-                    tasks.push({ id: doc.id, ...doc.data() });
-                });
-                renderTasks();
+        function renderAnnouncements() {
+            const announcementList = document.getElementById('announcementList');
+            announcementList.innerHTML = '';
+            announcements.forEach((announcement) => {
+                const li = document.createElement('li');
+                li.className = 'announcement-item';
+                let dateString;
+                if (announcement.date && typeof announcement.date.toDate === 'function') {
+                    dateString = announcement.date.toDate().toLocaleString();
+                } else if (announcement.date instanceof Date) {
+                    dateString = announcement.date.toLocaleString();
+                } else {
+                    dateString = 'Fecha no disponible';
+                }
+                li.innerHTML = `
+                    <h3>${announcement.title}</h3>
+                    <p>${announcement.content}</p>
+                    <small>${dateString}</small>
+                    <button onclick="deleteAnnouncement('${announcement.id}')">Eliminar</button>
+                `;
+                announcementList.appendChild(li);
             });
         }
 
-        // ... (mantengo el resto de las funciones y eventos) ...
+        function clearShiftInputs() {
+            document.getElementById('shiftDate').value = '';
+            document.getElementById('shiftStart').value = '';
+            document.getElementById('shiftEnd').value = '';
+            document.getElementById('shiftEmployee').value = '';
+        }
+
+        function clearAnnouncementInputs() {
+            document.getElementById('announcementTitle').value = '';
+            document.getElementById('announcementContent').value = '';
+        }
+
+        function logout() {
+            sessionStorage.removeItem('userName');
+            window.location.href = 'login.html';
+        }
+
+        function updateNotificationBadge(id, count) {
+            const badge = document.getElementById(id);
+            if (count > 0) {
+                badge.style.display = 'inline';
+                badge.textContent = count;
+            } else {
+                badge.style.display = 'none';
+            }
+        }
 
         // Cargar todos los datos al iniciar
         window.addEventListener('load', () => {
@@ -416,8 +663,25 @@
             updateNotificationBadge('shiftsBadge', 0);
         });
 
-        // ... (mantengo el resto del código existente) ...
-
+        function clearStorage() {
+            db.collection("tasks").get().then((querySnapshot) => {
+                querySnapshot.forEach((doc) => {
+                    db.collection("tasks").doc(doc.id).delete();
+                });
+            });
+            db.collection("shifts").get().then((querySnapshot) => {
+                querySnapshot.forEach((doc) => {
+                    db.collection("shifts").doc(doc.id).delete();
+                });
+            });
+            db.collection("announcements").get().then((querySnapshot) => {
+                querySnapshot.forEach((doc) => {
+                    db.collection("announcements").doc(doc.id).delete();
+                });
+            });
+            console.log('Almacenamiento limpiado');
+            location.reload();
+        }
     </script>
 </body>
 </html>
