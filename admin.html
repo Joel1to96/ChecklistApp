@@ -5,19 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Administración del Restaurante</title>
     <style>
+        /* Reset de márgenes y padding */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            max-width: 800px; 
-            margin: 0 auto; 
-            padding: 20px; 
-            background-color: #f0f0f0;
+            background-color: #ecf0f1;
             padding-bottom: 60px; /* Espacio para la barra de navegación */
+        }
+        .container {
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px;
         }
         .header {
             display: flex;
+            flex-wrap: wrap;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
         }
         h1, h2 { 
             color: #2c3e50; 
@@ -35,6 +48,7 @@
         }
         .task-input, .shift-input, .announcement-input { 
             display: flex; 
+            flex-wrap: wrap;
             margin-bottom: 10px; 
             gap: 10px;
         }
@@ -43,6 +57,8 @@
         .announcement-input input, .announcement-input textarea { 
             padding: 8px; 
             font-size: 16px; 
+            flex: 1;
+            min-width: 150px;
         }
         .announcement-input {
             flex-direction: column;
@@ -50,15 +66,17 @@
         .announcement-input textarea {
             height: 100px;
             resize: vertical;
+            width: 100%;
         }
         button {
-            padding: 8px 16px;
+            padding: 10px 20px;
             background-color: #3498db;
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
             transition: background-color 0.3s;
+            font-size: 16px;
         }
         button:hover {
             background-color: #2980b9;
@@ -70,18 +88,18 @@
         .task-item, .shift-item, .announcement-item {
             background-color: #f9f9f9;
             margin-bottom: 8px;
-            padding: 10px;
-            border-radius: 4px;
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+        }
+        .task-item span, .shift-item span {
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        .announcement-item {
-            flex-direction: column;
-            align-items: flex-start;
-        }
         .announcement-item h3 {
-            margin-top: 0;
+            margin-bottom: 10px;
         }
         .logout-button {
             background-color: #e74c3c;
@@ -98,6 +116,7 @@
             display: flex;
             justify-content: space-around;
             padding: 10px 0;
+            z-index: 1000;
         }
         .nav-item {
             color: white;
@@ -106,14 +125,16 @@
             border-radius: 5px;
             transition: background-color 0.3s;
             position: relative;
+            flex: 1;
+            text-align: center;
         }
         .nav-item:hover, .nav-item.active {
             background-color: #34495e;
         }
         .notification-badge {
             position: absolute;
-            top: -8px;
-            right: -8px;
+            top: 8px;
+            right: 16px;
             background-color: red;
             color: white;
             border-radius: 50%;
@@ -122,7 +143,7 @@
             display: none;
         }
         #calendar {
-            height: 600px;
+            height: auto;
             margin-bottom: 20px;
         }
         .fc-event {
@@ -135,6 +156,8 @@
         /* Estilos adicionales para las nuevas opciones */
         .task-assignment-options, .task-assignment-selection {
             margin-bottom: 10px;
+            flex: 1;
+            min-width: 150px;
         }
         .task-assignment-selection label {
             display: inline-block;
@@ -142,6 +165,23 @@
         }
         .task-assignment-selection input[type="checkbox"] {
             margin-right: 5px;
+        }
+        /* Media Queries para hacer el diseño responsive */
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .task-input, .shift-input, .announcement-input {
+                flex-direction: column;
+            }
+            .nav-item {
+                font-size: 14px;
+            }
+            .notification-badge {
+                top: 5px;
+                right: 10px;
+            }
         }
     </style>
     <link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.10.2/main.min.css' rel='stylesheet' />
@@ -233,8 +273,6 @@
             <span class="notification-badge" id="shiftsBadge"></span>
         </a>
     </nav>
-
-    <button onclick="clearStorage()">Limpiar almacenamiento</button>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
@@ -532,8 +570,10 @@
                     assignedTime = `Fecha: ${task.assignedDate}`;
                 }
                 li.innerHTML = `
-                    <span>${task.text} - Asignado a: ${task.assignedTo} ${assignedTime ? '- ' + assignedTime : ''}</span>
-                    <button onclick="deleteTask('${task.id}')">Eliminar</button>
+                    <span>
+                        <strong>${task.text}</strong> - Asignado a: ${task.assignedTo} ${assignedTime ? '- ' + assignedTime : ''}
+                        <button onclick="deleteTask('${task.id}')">Eliminar</button>
+                    </span>
                 `;
                 taskList.appendChild(li);
             });
@@ -621,26 +661,6 @@
             updateNotificationBadge('tasksBadge', 0);
             updateNotificationBadge('shiftsBadge', 0);
         });
-
-        function clearStorage() {
-            db.collection("tasks").get().then((querySnapshot) => {
-                querySnapshot.forEach((doc) => {
-                    db.collection("tasks").doc(doc.id).delete();
-                });
-            });
-            db.collection("shifts").get().then((querySnapshot) => {
-                querySnapshot.forEach((doc) => {
-                    db.collection("shifts").doc(doc.id).delete();
-                });
-            });
-            db.collection("announcements").get().then((querySnapshot) => {
-                querySnapshot.forEach((doc) => {
-                    db.collection("announcements").doc(doc.id).delete();
-                });
-            });
-            console.log('Almacenamiento limpiado');
-            location.reload();
-        }
     </script>
 </body>
 </html>
