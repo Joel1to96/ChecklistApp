@@ -132,6 +132,17 @@
         .fc-daygrid-event-dot {
             display: none !important;
         }
+        /* Estilos adicionales para las nuevas opciones */
+        .task-assignment-options, .task-assignment-selection {
+            margin-bottom: 10px;
+        }
+        .task-assignment-selection label {
+            display: inline-block;
+            margin-right: 10px;
+        }
+        .task-assignment-selection input[type="checkbox"] {
+            margin-right: 5px;
+        }
     </style>
     <link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.10.2/main.min.css' rel='stylesheet' />
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.10.2/main.min.js'></script>
@@ -164,6 +175,27 @@
                     <option value="Limpieza">Limpieza</option>
                     <option value="Gerente">Gerente</option>
                 </select>
+                <div class="task-assignment-options">
+                    <label>Asignar por:</label>
+                    <select id="assignBy">
+                        <option value="dayOfWeek">Día de la semana</option>
+                        <option value="date">Fecha específica</option>
+                    </select>
+                </div>
+                <div id="dayOfWeekSelection" class="task-assignment-selection">
+                    <label>Días de la semana:</label>
+                    <label><input type="checkbox" name="dayOfWeek" value="Lunes"> Lunes</label>
+                    <label><input type="checkbox" name="dayOfWeek" value="Martes"> Martes</label>
+                    <label><input type="checkbox" name="dayOfWeek" value="Miércoles"> Miércoles</label>
+                    <label><input type="checkbox" name="dayOfWeek" value="Jueves"> Jueves</label>
+                    <label><input type="checkbox" name="dayOfWeek" value="Viernes"> Viernes</label>
+                    <label><input type="checkbox" name="dayOfWeek" value="Sábado"> Sábado</label>
+                    <label><input type="checkbox" name="dayOfWeek" value="Domingo"> Domingo</label>
+                </div>
+                <div id="dateSelection" class="task-assignment-selection" style="display: none;">
+                    <label>Fecha específica:</label>
+                    <input type="date" id="taskDate">
+                </div>
                 <button onclick="addTask()">Añadir Tarea</button>
             </div>
             <ul id="taskList" class="task-list"></ul>
@@ -267,6 +299,16 @@
                 eventDisplay: 'block'
             });
             calendar.render();
+
+            // Inicializar la visualización de las opciones de asignación
+            const assignBy = document.getElementById('assignBy').value;
+            if (assignBy === 'dayOfWeek') {
+                document.getElementById('dayOfWeekSelection').style.display = 'block';
+                document.getElementById('dateSelection').style.display = 'none';
+            } else {
+                document.getElementById('dayOfWeekSelection').style.display = 'none';
+                document.getElementById('dateSelection').style.display = 'block';
+            }
         });
 
         function getShiftEvents() {
@@ -310,26 +352,61 @@
         function addTask() {
             const newTaskInput = document.getElementById('newTask');
             const assignToSelect = document.getElementById('assignTo');
+            const assignBySelect = document.getElementById('assignBy');
             const text = newTaskInput.value.trim();
             const assignedTo = assignToSelect.value;
+            const assignBy = assignBySelect.value;
             
-            if (text) {
+            let assignedDays = [];
+            let assignedDate = null;
+            
+            if (assignBy === 'dayOfWeek') {
+                const dayCheckboxes = document.querySelectorAll('input[name="dayOfWeek"]:checked');
+                assignedDays = Array.from(dayCheckboxes).map(cb => cb.value);
+            } else if (assignBy === 'date') {
+                assignedDate = document.getElementById('taskDate').value;
+            }
+
+            if (text && ((assignBy === 'dayOfWeek' && assignedDays.length > 0) || (assignBy === 'date' && assignedDate))) {
                 db.collection("tasks").add({
                     text: text,
                     assignedTo: assignedTo,
                     completed: false,
-                    createdAt: firebase.firestore.Timestamp.now()
+                    createdAt: firebase.firestore.Timestamp.now(),
+                    assignBy: assignBy,
+                    assignedDays: assignedDays,
+                    assignedDate: assignedDate
                 })
                 .then((docRef) => {
                     console.log("Tarea añadida con ID: ", docRef.id);
                     newTaskInput.value = '';
+                    // Restablecer los campos
+                    assignBySelect.value = 'dayOfWeek';
+                    document.getElementById('dayOfWeekSelection').style.display = 'block';
+                    document.getElementById('dateSelection').style.display = 'none';
+                    document.querySelectorAll('input[name="dayOfWeek"]').forEach(cb => cb.checked = false);
+                    document.getElementById('taskDate').value = '';
                     loadTasks();
                 })
                 .catch((error) => {
                     console.error("Error al añadir tarea: ", error);
                 });
+            } else {
+                alert('Por favor, completa todos los campos requeridos.');
             }
         }
+
+        // Evento para mostrar/ocultar las opciones de asignación
+        document.getElementById('assignBy').addEventListener('change', function() {
+            const assignBy = this.value;
+            if (assignBy === 'dayOfWeek') {
+                document.getElementById('dayOfWeekSelection').style.display = 'block';
+                document.getElementById('dateSelection').style.display = 'none';
+            } else if (assignBy === 'date') {
+                document.getElementById('dayOfWeekSelection').style.display = 'none';
+                document.getElementById('dateSelection').style.display = 'block';
+            }
+        });
 
         // Eliminar tarea
         function deleteTask(id) {
@@ -448,8 +525,14 @@
             tasks.forEach((task) => {
                 const li = document.createElement('li');
                 li.className = 'task-item';
+                let assignedTime = '';
+                if (task.assignBy === 'dayOfWeek' && task.assignedDays) {
+                    assignedTime = `Días: ${task.assignedDays.join(', ')}`;
+                } else if (task.assignBy === 'date' && task.assignedDate) {
+                    assignedTime = `Fecha: ${task.assignedDate}`;
+                }
                 li.innerHTML = `
-                    <span>${task.text} - Asignado a: ${task.assignedTo}</span>
+                    <span>${task.text} - Asignado a: ${task.assignedTo} ${assignedTime ? '- ' + assignedTime : ''}</span>
                     <button onclick="deleteTask('${task.id}')">Eliminar</button>
                 `;
                 taskList.appendChild(li);
