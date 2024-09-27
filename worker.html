@@ -48,7 +48,7 @@
             cursor: pointer;
             transition: all 0.3s ease;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            color: #333; /* Color de texto por defecto */
+            color: #333;
         }
         .task-item:hover, .shift-item:hover {
             transform: translateY(-5px);
@@ -56,7 +56,7 @@
         }
         .task-item.completed {
             background-color: #2ecc71;
-            color: white; /* Color de texto para tareas completadas */
+            color: white;
         }
         button {
             font-size: 1.1em;
@@ -80,7 +80,7 @@
             display: flex;
             justify-content: space-around;
             padding: 10px 0;
-            z-index: 1000; /* Asegura que la barra de navegación esté por encima del contenido */
+            z-index: 1000;
         }
         .nav-item {
             color: white;
@@ -135,43 +135,36 @@
             height: 600px;
             width: 100%;
         }
-        
         #calendar {
             background-color: white;
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        
         .fc .fc-toolbar-title {
             font-size: 1.5em;
             margin: 0;
             padding: 0;
         }
-        
         .fc .fc-button {
             background-color: #3498db;
             border-color: #3498db;
         }
-        
         .fc .fc-button:hover {
             background-color: #2980b9;
             border-color: #2980b9;
         }
-        
         .fc .fc-daygrid-day-number {
             font-size: 1em;
             padding: 5px;
         }
-        
         .fc .fc-event {
             border: none;
             padding: 2px 5px;
             font-size: 0.85em;
         }
-        
         #shiftsSection {
-            height: calc(100vh - 100px); /* Ajusta este valor según sea necesario */
+            height: calc(100vh - 100px);
             display: flex;
             flex-direction: column;
         }
@@ -179,20 +172,17 @@
             flex-grow: 1;
             width: 100%;
         }
-
         .fc-event {
             border: none !important;
             background-color: transparent !important;
             padding: 2px 5px !important;
         }
-
         .fc-event-title {
             font-weight: bold;
-            white-space: normal; /* Permite que el texto se envuelva si es necesario */
+            white-space: normal;
         }
-
         .fc-daygrid-event-dot {
-            display: none !important; /* Esto elimina el punto */
+            display: none !important;
         }
     </style>
     <link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.10.2/main.min.css' rel='stylesheet' />
@@ -238,12 +228,13 @@
         </a>
     </nav>
 
+    <!-- Reemplaza la configuración de Firebase con tus propias credenciales -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script>
-        // Configuración de Firebase
+        // Configuración de Firebase (Reemplaza con tus propias credenciales)
         const firebaseConfig = {
-          apiKey: "AIzaSyD2Ro-aX_BvF4FUQDYLqNOapc_0CZIh5Qg",
+            apiKey: "AIzaSyD2Ro-aX_BvF4FUQDYLqNOapc_0CZIh5Qg",
           authDomain: "reastauranteapp.firebaseapp.com",
           projectId: "reastauranteapp",
           storageBucket: "reastauranteapp.appspot.com",
@@ -263,6 +254,7 @@
             window.location.href = 'login.html';
         }
         console.log('Usuario actual:', userName);
+        document.getElementById('userName').textContent = `Bienvenido, ${userName}`;
 
         let tasks = [];
         let shifts = [];
@@ -270,26 +262,26 @@
 
         // Cargar tareas del trabajador
         function loadWorkerTasks() {
-          console.log("Cargando tareas para:", userName);
-          db.collection("tasks")
-            .where("assignedTo", "==", userName)
-            .get()
-            .then((querySnapshot) => {
-              tasks = [];
-              querySnapshot.forEach((doc) => {
-                tasks.push({ 
-                    id: doc.id, 
-                    ...doc.data(),
-                    createdAt: doc.data().createdAt || firebase.firestore.Timestamp.now()
+            console.log("Cargando tareas para:", userName);
+            db.collection("tasks")
+                .where("assignedTo", "==", userName)
+                .get()
+                .then((querySnapshot) => {
+                    tasks = [];
+                    querySnapshot.forEach((doc) => {
+                        tasks.push({
+                            id: doc.id,
+                            ...doc.data(),
+                            createdAt: doc.data().createdAt || firebase.firestore.Timestamp.now()
+                        });
+                    });
+                    console.log("Tareas cargadas:", tasks);
+                    renderTasks();
+                    checkPendingTasks();
+                })
+                .catch((error) => {
+                    console.error("Error al cargar tareas:", error);
                 });
-              });
-              console.log("Tareas cargadas:", tasks);
-              renderTasks();
-              checkPendingTasks();
-            })
-            .catch((error) => {
-              console.error("Error al cargar tareas:", error);
-            });
         }
 
         // Marcar tarea como completada
@@ -309,14 +301,6 @@
                 });
             }
         }
-
-        // Cargar datos al iniciar
-        window.addEventListener('load', () => {
-          loadWorkerTasks();
-          loadShifts();
-          loadAnnouncements();
-          setupTaskListener();
-        });
 
         function renderTasks() {
             const taskGrid = document.getElementById('taskGrid');
@@ -394,25 +378,24 @@
                 eventDisplay: 'block'
             });
 
-            // Renderiza el calendario inmediatamente
             calendar.render();
         });
 
         function getShiftEvents() {
             return shifts.map(shift => ({
                 id: shift.id,
-                title: `${shift.start} - ${shift.end}`, // Solo mostramos las horas de inicio y fin
+                title: `${shift.start} - ${shift.end}`,
                 start: `${shift.date}T${shift.start}`,
                 end: `${shift.date}T${shift.end}`,
                 allDay: false,
-                display: 'block', // Esto asegura que el evento ocupe todo el ancho de la celda
-                textColor: 'black', // Color del texto
-                backgroundColor: 'transparent', // Fondo transparente
-                borderColor: 'transparent' // Sin borde
+                display: 'block',
+                textColor: 'black',
+                backgroundColor: 'transparent',
+                borderColor: 'transparent'
             }));
         }
 
-        const defaultEmailAddresses = ["joelb.6foot@gmail.com", "jsanches.6foot@gmail.com"];
+        const defaultEmailAddresses = ["joel.6foot@gmail.com"];
 
         function prepareEmail() {
             const userTasks = tasks.filter(task => task.assignedTo === userName);
@@ -550,87 +533,95 @@
         function updateShiftCheckStatus() {
             const latestShiftId = Math.max(...shifts.map(shift => new Date(shift.date).getTime()));
             localStorage.setItem('lastShiftCheck', latestShiftId.toString());
-            checkUpcomingShifts(); // Actualiza el estado de las notificaciones
+            checkUpcomingShifts();
         }
 
         function setupTaskListener() {
-          db.collection("tasks")
-            .where("assignedTo", "==", userName)
-            .onSnapshot((snapshot) => {
-              snapshot.docChanges().forEach((change) => {
-                if (change.type === "added") {
-                  console.log("Nueva tarea asignada: ", change.doc.data());
-                  const newTask = { 
-                      id: change.doc.id, 
-                      ...change.doc.data(),
-                      createdAt: change.doc.data().createdAt || firebase.firestore.Timestamp.now()
-                  };
-                  const existingTaskIndex = tasks.findIndex(t => t.id === newTask.id);
-                  if (existingTaskIndex === -1) {
-                      tasks.push(newTask);
-                  } else {
-                      tasks[existingTaskIndex] = newTask;
-                  }
-                }
-                if (change.type === "modified") {
-                  console.log("Tarea modificada: ", change.doc.data());
-                  const index = tasks.findIndex(task => task.id === change.doc.id);
-                  if (index !== -1) {
-                    tasks[index] = { id: change.doc.id, ...change.doc.data() };
-                  }
-                }
-                if (change.type === "removed") {
-                  console.log("Tarea eliminada: ", change.doc.data());
-                  tasks = tasks.filter(task => task.id !== change.doc.id);
-                }
-              });
-              renderTasks();
-              checkPendingTasks();
-            });
+            db.collection("tasks")
+                .where("assignedTo", "==", userName)
+                .onSnapshot((snapshot) => {
+                    snapshot.docChanges().forEach((change) => {
+                        if (change.type === "added") {
+                            console.log("Nueva tarea asignada: ", change.doc.data());
+                            const newTask = {
+                                id: change.doc.id,
+                                ...change.doc.data(),
+                                createdAt: change.doc.data().createdAt || firebase.firestore.Timestamp.now()
+                            };
+                            const existingTaskIndex = tasks.findIndex(t => t.id === newTask.id);
+                            if (existingTaskIndex === -1) {
+                                tasks.push(newTask);
+                            } else {
+                                tasks[existingTaskIndex] = newTask;
+                            }
+                        }
+                        if (change.type === "modified") {
+                            console.log("Tarea modificada: ", change.doc.data());
+                            const index = tasks.findIndex(task => task.id === change.doc.id);
+                            if (index !== -1) {
+                                tasks[index] = { id: change.doc.id, ...change.doc.data() };
+                            }
+                        }
+                        if (change.type === "removed") {
+                            console.log("Tarea eliminada: ", change.doc.data());
+                            tasks = tasks.filter(task => task.id !== change.doc.id);
+                        }
+                    });
+                    renderTasks();
+                    checkPendingTasks();
+                });
         }
 
         function loadShifts() {
-          console.log("Cargando turnos para:", userName);
-          db.collection("shifts")
-            .where("employee", "==", userName)
-            .get()
-            .then((querySnapshot) => {
-              shifts = [];
-              querySnapshot.forEach((doc) => {
-                shifts.push({ id: doc.id, ...doc.data() });
-              });
-              console.log("Turnos cargados:", shifts);
-              if (calendar) {
-                calendar.removeAllEvents();
-                calendar.addEventSource(getShiftEvents());
-                calendar.render();
-                calendar.updateSize();
-              }
-              checkUpcomingShifts();
-              updateShiftCheckStatus();
-            })
-            .catch((error) => {
-              console.error("Error al cargar turnos:", error);
-            });
+            console.log("Cargando turnos para:", userName);
+            db.collection("shifts")
+                .where("employee", "==", userName)
+                .get()
+                .then((querySnapshot) => {
+                    shifts = [];
+                    querySnapshot.forEach((doc) => {
+                        shifts.push({ id: doc.id, ...doc.data() });
+                    });
+                    console.log("Turnos cargados:", shifts);
+                    if (calendar) {
+                        calendar.removeAllEvents();
+                        calendar.addEventSource(getShiftEvents());
+                        calendar.render();
+                        calendar.updateSize();
+                    }
+                    checkUpcomingShifts();
+                    updateShiftCheckStatus();
+                })
+                .catch((error) => {
+                    console.error("Error al cargar turnos:", error);
+                });
         }
 
         function loadAnnouncements() {
-          console.log("Cargando anuncios");
-          db.collection("announcements")
-            .orderBy("date", "desc")
-            .get()
-            .then((querySnapshot) => {
-              announcements = [];
-              querySnapshot.forEach((doc) => {
-                announcements.push({ id: doc.id, ...doc.data() });
-              });
-              console.log("Anuncios cargados:", announcements);
-              renderAnnouncements();
-            })
-            .catch((error) => {
-              console.error("Error al cargar anuncios:", error);
-            });
+            console.log("Cargando anuncios");
+            db.collection("announcements")
+                .orderBy("date", "desc")
+                .get()
+                .then((querySnapshot) => {
+                    announcements = [];
+                    querySnapshot.forEach((doc) => {
+                        announcements.push({ id: doc.id, ...doc.data() });
+                    });
+                    console.log("Anuncios cargados:", announcements);
+                    renderAnnouncements();
+                })
+                .catch((error) => {
+                    console.error("Error al cargar anuncios:", error);
+                });
         }
+
+        // Cargar datos al iniciar
+        window.addEventListener('load', () => {
+            loadWorkerTasks();
+            loadShifts();
+            loadAnnouncements();
+            setupTaskListener();
+        });
 
         window.addEventListener('resize', function() {
             if (calendar) {
