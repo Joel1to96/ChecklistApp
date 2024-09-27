@@ -184,6 +184,12 @@
         .fc-daygrid-event-dot {
             display: none !important;
         }
+        /* Aseguramos que el calendario no ocupe espacio cuando no está activo */
+        #shiftsSection:not(.active) {
+            display: none;
+            height: 0;
+            overflow: hidden;
+        }
     </style>
     <link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.10.2/main.min.css' rel='stylesheet' />
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.10.2/main.min.js'></script>
@@ -234,7 +240,7 @@
     <script>
         // Configuración de Firebase (Reemplaza con tus propias credenciales)
         const firebaseConfig = {
-            apiKey: "AIzaSyD2Ro-aX_BvF4FUQDYLqNOapc_0CZIh5Qg",
+          apiKey: "AIzaSyD2Ro-aX_BvF4FUQDYLqNOapc_0CZIh5Qg",
           authDomain: "reastauranteapp.firebaseapp.com",
           projectId: "reastauranteapp",
           storageBucket: "reastauranteapp.appspot.com",
@@ -259,6 +265,9 @@
         let tasks = [];
         let shifts = [];
         let announcements = [];
+
+        let calendarInitialized = false; // Bandera para evitar inicializar el calendario varias veces
+        let calendar; // Variable para el calendario
 
         // Cargar tareas del trabajador
         function loadWorkerTasks() {
@@ -339,47 +348,49 @@
             checkPendingTasks();
         }
 
-        let calendar;
+        // Función para inicializar el calendario
+        function initializeCalendar() {
+            if (!calendarInitialized) {
+                var calendarEl = document.getElementById('calendar');
+                calendar = new FullCalendar.Calendar(calendarEl, {
+                    initialView: 'dayGridMonth',
+                    headerToolbar: {
+                        left: 'prev,next today',
+                        center: 'title',
+                        right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                    },
+                    locale: 'es',
+                    buttonText: {
+                        today: 'Hoy',
+                        month: 'Mes',
+                        week: 'Semana',
+                        day: 'Día'
+                    },
+                    events: getShiftEvents(),
+                    height: 'auto',
+                    aspectRatio: 1.35,
+                    expandRows: true,
+                    slotMinTime: '00:00',
+                    slotMaxTime: '24:00',
+                    allDaySlot: false,
+                    slotEventOverlap: false,
+                    eventTimeFormat: {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        meridiem: 'short'
+                    },
+                    eventContent: function(arg) {
+                        return {
+                            html: `<div class="fc-event-title">${arg.event.title}</div>`
+                        };
+                    },
+                    eventDisplay: 'block'
+                });
 
-        document.addEventListener('DOMContentLoaded', function() {
-            var calendarEl = document.getElementById('calendar');
-            calendar = new FullCalendar.Calendar(calendarEl, {
-                initialView: 'dayGridMonth',
-                headerToolbar: {
-                    left: 'prev,next today',
-                    center: 'title',
-                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
-                },
-                locale: 'es',
-                buttonText: {
-                    today: 'Hoy',
-                    month: 'Mes',
-                    week: 'Semana',
-                    day: 'Día'
-                },
-                events: getShiftEvents(),
-                height: 'auto',
-                aspectRatio: 1.35,
-                expandRows: true,
-                slotMinTime: '00:00',
-                slotMaxTime: '24:00',
-                allDaySlot: false,
-                slotEventOverlap: false,
-                eventTimeFormat: {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    meridiem: 'short'
-                },
-                eventContent: function(arg) {
-                    return {
-                        html: `<div class="fc-event-title">${arg.event.title}</div>`
-                    };
-                },
-                eventDisplay: 'block'
-            });
-
-            calendar.render();
-        });
+                calendar.render();
+                calendarInitialized = true;
+            }
+        }
 
         function getShiftEvents() {
             return shifts.map(shift => ({
@@ -395,7 +406,7 @@
             }));
         }
 
-        const defaultEmailAddresses = ["joel.6foot@gmail.com"];
+        const defaultEmailAddresses = ["joelb.6foot@gmail.com", "jsanchez.6foot@gmail.com"];
 
         function prepareEmail() {
             const userTasks = tasks.filter(task => task.assignedTo === userName);
@@ -445,6 +456,8 @@
             } else if (sectionId === 'announcementsSection') {
                 renderAnnouncements();
             } else if (sectionId === 'shiftsSection') {
+                // Inicializar y renderizar el calendario
+                initializeCalendar();
                 if (calendar) {
                     setTimeout(() => {
                         calendar.updateSize();
@@ -583,7 +596,7 @@
                         shifts.push({ id: doc.id, ...doc.data() });
                     });
                     console.log("Turnos cargados:", shifts);
-                    if (calendar) {
+                    if (calendarInitialized && calendar) {
                         calendar.removeAllEvents();
                         calendar.addEventSource(getShiftEvents());
                         calendar.render();
@@ -618,7 +631,7 @@
         // Cargar datos al iniciar
         window.addEventListener('load', () => {
             loadWorkerTasks();
-            loadShifts();
+            loadShifts(); // Carga los turnos pero no inicializa el calendario hasta que se muestre la sección
             loadAnnouncements();
             setupTaskListener();
         });
