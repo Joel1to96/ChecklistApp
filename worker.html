@@ -269,24 +269,29 @@
         let calendarInitialized = false; // Bandera para evitar inicializar el calendario varias veces
         let calendar; // Variable para el calendario
 
-        // Cargar tareas del trabajador
+        // Cargar tareas del trabajador según el rol
         function loadWorkerTasks() {
-            console.log("Cargando tareas para:", userName);
+            const userRole = sessionStorage.getItem('userRole').toLowerCase(); // Obtener el rol del usuario y convertir a minúsculas
+            console.log("Cargando tareas para el rol:", userRole);
+            
             db.collection("tasks")
-                .where("assignedTo", "==", userName)
-                .get()
+                .get() // Obtener todas las tareas
                 .then((querySnapshot) => {
-                    tasks = [];
+                    tasks = []; // Reiniciar la lista de tareas
                     querySnapshot.forEach((doc) => {
-                        tasks.push({
-                            id: doc.id,
-                            ...doc.data(),
-                            createdAt: doc.data().createdAt || firebase.firestore.Timestamp.now()
-                        });
+                        const taskData = doc.data();
+                        // Comparar el rol ignorando mayúsculas
+                        if (taskData.assignedTo.toLowerCase() === userRole) {
+                            tasks.push({
+                                id: doc.id,
+                                ...taskData,
+                                createdAt: taskData.createdAt || firebase.firestore.Timestamp.now()
+                            });
+                        }
                     });
                     console.log("Tareas cargadas:", tasks);
-                    renderTasks();
-                    checkPendingTasks();
+                    renderTasks(); // Renderizar las tareas
+                    checkPendingTasks(); // Verificar tareas pendientes
                 })
                 .catch((error) => {
                     console.error("Error al cargar tareas:", error);
@@ -297,13 +302,17 @@
         function toggleTaskCompletion(id) {
             const task = tasks.find(t => t.id === id);
             if (task) {
-                task.completed = !task.completed;
+                const isCompleted = !task.completed; // Cambiar el estado de completado
+                task.completed = isCompleted;
+
+                // Actualizar la tarea en Firestore
                 db.collection("tasks").doc(id).update({
-                    completed: task.completed
+                    completed: isCompleted,
+                    completedBy: isCompleted ? userName : null // Guardar el nombre del trabajador si se completa
                 })
                 .then(() => {
                     console.log("Estado de la tarea actualizado");
-                    renderTasks();
+                    loadWorkerTasks(); // Cargar tareas actualizadas
                 })
                 .catch((error) => {
                     console.error("Error al actualizar el estado de la tarea: ", error);
@@ -409,24 +418,85 @@
         const defaultEmailAddresses = ["joelb.6foot@gmail.com", "jsanchez.6foot@gmail.com"];
 
         function prepareEmail() {
-            const userTasks = tasks.filter(task => task.assignedTo === userName);
-            const completedTasks = userTasks.filter(task => task.completed);
-            const incompleteTasks = userTasks.filter(task => !task.completed);
+    const today = new Date();
+    const todayDayOfWeek = today.toLocaleDateString('es-ES', { weekday: 'long' });
+    const todayDateString = today.toISOString().split('T')[0]; // 'YYYY-MM-DD'
 
-            let emailBody = `Resumen de Tareas para ${userName}\n\n`;
-            emailBody += "Tareas Completadas:\n";
-            completedTasks.forEach(task => {
-                emailBody += `- ${task.text}\n`;
+    function capitalizeFirstLetter(string) {
+        return string.charAt(0).toUpperCase() + string.slice(1);
+    }
+
+    // Utilizar la misma lógica de filtrado que en renderTasks()
+    const filteredTasks = tasks.filter(task => {
+        if (task.assignBy === 'dayOfWeek' && task.assignedDays) {
+            return task.assignedDays.includes(capitalizeFirstLetter(todayDayOfWeek));
+        } else if (task.assignBy === 'date' && task.assignedDate) {
+            return task.assignedDate === todayDateString;
+        } else {
+            // Si no hay asignación específica, no incluir la tarea
+            return false;
+        }
+    });
+
+    // Eliminar tareas duplicadas
+    const uniqueTasks = Array.from(new Set(filteredTasks.map(task => task.id)))
+        .map(id => filteredTasks.find(task => task.id === id));
+
+    // Dividir las tareas en completadas y pendientes
+    const completedTasks = uniqueTasks.filter(task => task.completed && task.completedBy === userName);
+    const incompleteTasks = uniqueTasks.filter(task => !task.completed);
+
+    let emailBody = `Resumen de Tareas para ${userName}\n\n`;
+    emailBody += "Tareas Completadas:\n";
+    completedTasks.forEach(task => {
+        emailBody += `- ${task.text}\n`;
+    });
+    emailBody += "\nTareas Pendientes:\n";
+    incompleteTasks.forEach(task => {
+        emailBody += `- ${task.text}\n`;
+    });
+
+    const emailSubject = `Resumen de Tareas del Restaurante - ${userName}`;
+    const mailtoLink = `mailto:${defaultEmailAddresses.join(',')}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+
+    window.location.href = mailtoLink;
+
+    // Log para depuración
+    console.log(`Tareas filtradas para el correo: ${uniqueTasks.map(task => task.text).join(', ')}`);
+
+    // Después de enviar el correo, reiniciar el estado de las tareas
+    resetTasksCompletionStatus(uniqueTasks);
+}
+
+
+function resetTasksCompletionStatus(tasksToReset) {
+    tasksToReset.forEach(task => {
+        if (task.completed) {
+            // Actualizar la tarea en Firestore
+            db.collection("tasks").doc(task.id).update({
+                completed: false,
+                completedBy: null
+            })
+            .then(() => {
+                console.log(`La tarea ${task.id} se reinició a no completada.`);
+            })
+            .catch(error => {
+                console.error(`Error al reiniciar la tarea ${task.id}:`, error);
             });
-            emailBody += "\nTareas Pendientes:\n";
-            incompleteTasks.forEach(task => {
-                emailBody += `- ${task.text}\n`;
-            });
+        }
 
-            const emailSubject = `Resumen de Tareas del Restaurante - ${userName}`;
-            const mailtoLink = `mailto:${defaultEmailAddresses.join(',')}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+        // Actualizar la tarea en el arreglo local
+        task.completed = false;
+        task.completedBy = null;
+    });
 
-            window.location.href = mailtoLink;
+    // Volver a renderizar las tareas para reflejar los cambios
+    renderTasks();
+}
+
+        // Función para capitalizar la primera letra
+        function capitalizeFirstLetter(string) {
+            return string.charAt(0).toUpperCase() + string.slice(1);
         }
 
         function logout() {
@@ -510,8 +580,7 @@
         function checkPendingTasks() {
             const lastTaskCheckKey = `lastTaskCheck_${userName}`;
             const lastTaskCheck = parseInt(localStorage.getItem(lastTaskCheckKey)) || 0;
-            console.log('Último check de tareas para', userName, ':', new Date(lastTaskCheck));
-            console.log('Todas las tareas:', tasks);
+
             const newTasks = tasks.filter(task => {
                 const isAssigned = task.assignedTo === userName;
                 const isNotCompleted = !task.completed;
