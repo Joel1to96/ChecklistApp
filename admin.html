@@ -237,6 +237,39 @@
                 <button onclick="addShift()">Añadir Turno</button>
             </div>
         </div>
+
+        <div id="usersSection" class="section">
+            <h2>Gestión de Usuarios</h2>
+            <div class="user-input">
+                <input type="text" id="userName" placeholder="Nombre del usuario">
+                <input type="password" id="userPassword" placeholder="Contraseña">
+                <select id="userRole">
+                    <option value="admin">Admin</option>
+                    <option value="mesero">Mesero</option>
+                    <option value="cocinero">Cocinero</option>
+                    <option value="limpieza">Limpieza</option>
+                    <option value="gerente">Gerente</option>
+                </select>
+                <button onclick="addUser()">Crear Usuario</button>
+            </div>
+            <ul id="userList"></ul>
+        </div>
+    </div>
+
+    <!-- Formulario para editar usuario -->
+    <div id="editUserSection" style="display: none;">
+        <h2>Editar Usuario</h2>
+        <input type="text" id="editUserName" placeholder="Nombre del usuario">
+        <input type="password" id="editUserPassword" placeholder="Contraseña">
+        <select id="editUserRole">
+            <option value="admin">Admin</option>
+            <option value="mesero">Mesero</option>
+            <option value="cocinero">Cocinero</option>
+            <option value="limpieza">Limpieza</option>
+            <option value="gerente">Gerente</option>
+        </select>
+        <button onclick="updateUser()">Actualizar Usuario</button>
+        <button onclick="cancelEdit()">Cancelar</button>
     </div>
 
     <nav class="nav-bar">
@@ -251,6 +284,10 @@
         <a href="#" class="nav-item" onclick="showSection('shiftsSection', this)">
             Turnos
             <span class="notification-badge" id="shiftsBadge"></span>
+        </a>
+        <a href="#" class="nav-item" onclick="showSection('usersSection', this)">
+            Usuarios
+            <span class="notification-badge" id="usersBadge"></span>
         </a>
     </nav>
 
@@ -288,6 +325,8 @@
 
         // Variables para la selección de días
         let selectedDays = [];
+
+        let currentUserId = null; // Variable para almacenar el ID del usuario que se está editando
 
         // Evento para mostrar/ocultar las opciones de asignación
         document.getElementById('assignBy').addEventListener('change', function() {
@@ -682,6 +721,105 @@
             console.log('Almacenamiento limpiado');
             location.reload();
         }
+
+        // Añadir usuario
+        function addUser() {
+            const userName = document.getElementById('userName').value.trim();
+            const userPassword = document.getElementById('userPassword').value.trim();
+            const userRole = document.getElementById('userRole').value;
+
+            if (userName && userPassword) {
+                const hashedPassword = btoa(userPassword); // Ejemplo simple de hash (no recomendado para producción)
+
+                db.collection("users").add({
+                    name: userName,
+                    password: hashedPassword,
+                    role: userRole,
+                    createdAt: firebase.firestore.Timestamp.now()
+                }).then(() => {
+                    console.log("Usuario creado");
+                    loadUsers(); // Cargar la lista de usuarios
+                }).catch((error) => {
+                    console.error("Error al crear usuario: ", error);
+                });
+            } else {
+                alert('Por favor, completa todos los campos requeridos.');
+            }
+        }
+
+        // Cargar usuarios
+        function loadUsers() {
+            db.collection("users").get().then((querySnapshot) => {
+                const userList = document.getElementById('userList');
+                userList.innerHTML = '';
+                querySnapshot.forEach((doc) => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        ${doc.data().name} - Rol: ${doc.data().role} 
+                        <button onclick="editUser('${doc.id}')">Editar</button>
+                        <button onclick="deleteUser('${doc.id}')">Eliminar</button>
+                    `;
+                    userList.appendChild(li);
+                });
+            });
+        }
+
+        // Editar usuario
+        function editUser(userId) {
+            currentUserId = userId; // Guardar el ID del usuario que se está editando
+            db.collection("users").doc(userId).get().then((doc) => {
+                const userData = doc.data();
+                document.getElementById('editUserName').value = userData.name;
+                document.getElementById('editUserPassword').value = ''; // Limpiar el campo de contraseña
+                document.getElementById('editUserRole').value = userData.role;
+                document.getElementById('editUserSection').style.display = 'block'; // Mostrar sección de edición
+            });
+        }
+
+        // Actualizar usuario
+        function updateUser() {
+            const userName = document.getElementById('editUserName').value.trim();
+            const userPassword = document.getElementById('editUserPassword').value.trim();
+            const userRole = document.getElementById('editUserRole').value;
+
+            const userData = {
+                name: userName,
+                role: userRole,
+            };
+
+            if (userPassword) {
+                userData.password = btoa(userPassword); // Actualizar la contraseña solo si se proporciona
+            }
+
+            db.collection("users").doc(currentUserId).update(userData).then(() => {
+                console.log("Usuario actualizado");
+                loadUsers(); // Recargar la lista de usuarios
+                cancelEdit(); // Ocultar sección de edición
+            }).catch((error) => {
+                console.error("Error al actualizar usuario: ", error);
+            });
+        }
+
+        // Cancelar edición
+        function cancelEdit() {
+            document.getElementById('editUserSection').style.display = 'none'; // Ocultar sección de edición
+            currentUserId = null; // Limpiar el ID del usuario
+        }
+
+        // Eliminar usuario
+        function deleteUser(userId) {
+            db.collection("users").doc(userId).delete().then(() => {
+                console.log("Usuario eliminado correctamente");
+                loadUsers(); // Recargar la lista de usuarios
+            }).catch((error) => {
+                console.error("Error al eliminar usuario: ", error);
+            });
+        }
+
+        // Cargar usuarios al iniciar
+        window.addEventListener('load', () => {
+            loadUsers();
+        });
     </script>
 </body>
 </html>
