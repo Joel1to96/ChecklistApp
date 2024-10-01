@@ -131,17 +131,31 @@
 
         function login() {
             const password = document.getElementById('password').value;
-            const userName = passwords[password];
-            if (userName) {
-                sessionStorage.setItem('userName', userName);
-                if (userName === 'Administrador' || userName === 'Gerente') {
-                    window.location.href = 'admin.html';
-                } else {
-                    window.location.href = 'worker.html';
-                }
+
+            if (password) {
+                db.collection("users").where("password", "==", btoa(password)).get().then((querySnapshot) => {
+                    if (querySnapshot.empty) {
+                        alert("Contraseña incorrecta");
+                        clearPassword();
+                        return;
+                    }
+
+                    querySnapshot.forEach((doc) => {
+                        const userData = doc.data();
+                        sessionStorage.setItem('userName', userData.name); // Guardar el nombre de usuario
+                        sessionStorage.setItem('userRole', userData.role); // Guardar el rol del usuario
+                        // Redirigir según el rol
+                        if (userData.role === 'admin') {
+                            window.location.href = 'admin.html';
+                        } else {
+                            window.location.href = 'worker.html'; // O la página correspondiente
+                        }
+                    });
+                }).catch((error) => {
+                    console.error("Error al iniciar sesión: ", error);
+                });
             } else {
-                alert('Contraseña incorrecta');
-                clearPassword();
+                alert('Por favor, ingresa un PIN.');
             }
         }
 
