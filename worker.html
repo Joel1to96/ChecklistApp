@@ -68,6 +68,9 @@
             background-color: #2ecc71;
             color: white;
         }
+        .task-item.selected {
+            border: 2px solid #3498db;
+        }
         .announcement-list {
             display: flex;
             flex-direction: column;
@@ -154,6 +157,13 @@
         <!-- Sección de Tareas -->
         <div id="tasksSection" class="section">
             <h2>Mis Tareas</h2>
+            <!-- Añadimos el checkbox para activar/desactivar el modo de reorganización -->
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="enableReorder">
+                <label class="form-check-label" for="enableReorder">
+                    Activar modo de reorganización
+                </label>
+            </div>
             <div id="taskGrid" class="task-grid"></div>
             <button id="emailButton" class="btn btn-primary">Enviar Resumen por Correo</button>
         </div>
@@ -196,22 +206,26 @@
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- Librería SortableJS para drag-and-drop -->
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
+    <!-- SDK de EmailJS -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <script type="text/javascript">
+        (function(){
+            emailjs.init("IEL6hz3L7WAoJ9dRx"); // Reemplaza TU_CLAVE_PUBLICA con tu clave pública de EmailJS
+        })();
+    </script>
 
     <!-- Código JavaScript -->
     <script>
     (function() {
         // Configuración de Firebase (Reemplaza con tus propias credenciales)
         const firebaseConfig = {
-            apiKey: "AIzaSyD2Ro-aX_BvF4FUQDYLqNOapc_0CZIh5Qg",
-            authDomain: "reastauranteapp.firebaseapp.com",
-            projectId: "reastauranteapp",
-            storageBucket: "reastauranteapp.appspot.com",
-            messagingSenderId: "15166663435",
-            appId: "1:15166663435:web:dbd9dadcb13e83a904500e",
-            measurementId: "G-H1N33YWYJ0"
-        };
+    apiKey: "AIzaSyD2Ro-aX_BvF4FUQDYLqNOapc_0CZIh5Qg",
+    authDomain: "reastauranteapp.firebaseapp.com",
+    projectId: "reastauranteapp",
+    storageBucket: "reastauranteapp.appspot.com",
+    messagingSenderId: "15166663435",
+    appId: "1:15166663435:web:dbd9dadcb13e83a904500e",
+        }
 
         // Inicializar Firebase
         firebase.initializeApp(firebaseConfig);
@@ -240,6 +254,9 @@
         } else {
             console.error("El elemento con id 'userName' no existe en el DOM.");
         }
+
+        // Variables para el modo de selección
+        let firstSelectedTask = null;
 
         // Función para obtener el documento del usuario actual
         function getCurrentUserDoc() {
@@ -307,8 +324,6 @@
             const task = tasks.find(t => t.id === id);
             if (task) {
                 const isCompleted = !task.completed;
-                task.completed = isCompleted;
-
                 // Actualizar la tarea en Firestore
                 db.collection("tasks").doc(id).update({
                     completed: isCompleted,
@@ -316,7 +331,8 @@
                 })
                 .then(() => {
                     console.log("Estado de la tarea actualizado");
-                    renderTasks();
+                    // Volver a cargar las tareas para asegurarnos de que el arreglo 'tasks' esté actualizado
+                    loadWorkerTasks();
                 })
                 .catch((error) => {
                     console.error("Error al actualizar el estado de la tarea: ", error);
@@ -351,34 +367,62 @@
                 .map(id => filteredTasks.find(task => task.id === id));
             console.log('Tareas únicas para renderizar:', uniqueTasks);
 
-            uniqueTasks.forEach((task) => {
+            uniqueTasks.forEach((task, index) => {
                 const button = document.createElement('button');
                 button.className = `task-item ${task.completed ? 'completed' : ''}`;
                 button.textContent = task.text;
                 button.dataset.id = task.id;
-                button.onclick = () => toggleTaskCompletion(task.id);
+                button.dataset.index = index;
+                button.onclick = () => {
+                    if (isReorderModeEnabled()) {
+                        handleTaskSelection(button);
+                    } else {
+                        toggleTaskCompletion(task.id);
+                    }
+                };
                 taskGrid.appendChild(button);
             });
-
-            // Inicializar SortableJS en el grid de tareas
-            initializeSortable();
 
             checkPendingTasks();
         }
 
-        // Función para inicializar SortableJS y guardar el orden
-        function initializeSortable() {
-            const taskGrid = document.getElementById('taskGrid');
-            Sortable.create(taskGrid, {
-                animation: 150,
-                onEnd: function (evt) {
-                    // Obtener el nuevo orden de las tareas
-                    const taskIds = Array.from(taskGrid.children).map(child => child.dataset.id);
-                    console.log("Nuevo orden de tareas:", taskIds);
-                    // Guardar el nuevo orden en Firestore
-                    saveTaskOrder(taskIds);
+        // Función para verificar si el modo de reorganización está habilitado
+        function isReorderModeEnabled() {
+            const checkbox = document.getElementById('enableReorder');
+            return checkbox.checked;
+        }
+
+        // Función para manejar la selección de tareas y el intercambio
+        function handleTaskSelection(button) {
+            if (!firstSelectedTask) {
+                firstSelectedTask = button;
+                button.classList.add('selected');
+            } else {
+                const secondSelectedTask = button;
+                if (firstSelectedTask !== secondSelectedTask) {
+                    swapTasks(firstSelectedTask, secondSelectedTask);
                 }
-            });
+                firstSelectedTask.classList.remove('selected');
+                firstSelectedTask = null;
+            }
+        }
+
+        // Función para intercambiar dos tareas
+        function swapTasks(taskButton1, taskButton2) {
+            const index1 = parseInt(taskButton1.dataset.index);
+            const index2 = parseInt(taskButton2.dataset.index);
+
+            // Intercambiar tareas en el arreglo 'tasks'
+            const temp = tasks[index1];
+            tasks[index1] = tasks[index2];
+            tasks[index2] = temp;
+
+            // Actualizar el orden en la interfaz
+            renderTasks();
+
+            // Guardar el nuevo orden en Firestore
+            const taskIds = tasks.map(task => task.id);
+            saveTaskOrder(taskIds);
         }
 
         // Función para guardar el orden de las tareas en Firestore
@@ -398,7 +442,8 @@
             }
         }
 
-        // Función para inicializar el calendario
+        // Resto de las funciones (calendario, anuncios, turnos, etc.)
+
         function initializeCalendar() {
             if (!calendarInitialized) {
                 var calendarEl = document.getElementById('calendar');
@@ -456,7 +501,7 @@
             }));
         }
 
-        const defaultEmailAddresses = ["joelb.6foot@gmail.com", "jsanchez.6foot@gmail.com"];
+        const defaultEmailAddresses = ["correo1@example.com", "correo2@example.com"];
 
         function prepareEmail() {
             const today = new Date();
@@ -483,6 +528,9 @@
             const completedTasks = uniqueTasks.filter(task => task.completed && task.completedBy === userName);
             const incompleteTasks = uniqueTasks.filter(task => !task.completed);
 
+            console.log("Tareas completadas:", completedTasks);
+            console.log("Tareas pendientes:", incompleteTasks);
+
             let emailBody = `Resumen de Tareas para ${userName}\n\n`;
             emailBody += "Tareas Completadas:\n";
             completedTasks.forEach(task => {
@@ -493,13 +541,24 @@
                 emailBody += `- ${task.text}\n`;
             });
 
-            const emailSubject = `Resumen de Tareas del Restaurante - ${userName}`;
-            const mailtoLink = `mailto:${defaultEmailAddresses.join(',')}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+            // Enviar correo utilizando EmailJS
+            const templateParams = {
+                to_email: defaultEmailAddresses.join(','), // Destinatarios
+                from_name: userName,
+                subject: `Resumen de Tareas del Restaurante - ${userName}`,
+                message: emailBody
+            };
 
-            window.location.href = mailtoLink;
-
-            // Después de enviar el correo, reiniciar el estado de las tareas
-            resetTasksCompletionStatus(uniqueTasks);
+            emailjs.send('service_22ka8o4', 'template_n0t17ar', templateParams)
+                .then(function(response) {
+                    console.log('Correo enviado exitosamente!', response.status, response.text);
+                    alert('Correo enviado exitosamente.');
+                    // Después de enviar el correo, reiniciar el estado de las tareas
+                    resetTasksCompletionStatus(uniqueTasks);
+                }, function(error) {
+                    console.error('Error al enviar el correo:', error);
+                    alert('Error al enviar el correo. Por favor, inténtalo de nuevo más tarde.');
+                });
         }
 
         function resetTasksCompletionStatus(tasksToReset) {
@@ -606,22 +665,14 @@
         }
 
         function checkPendingTasks() {
-            // Aquí podrías implementar lógica para verificar tareas pendientes y actualizar el badge
-            // Por ejemplo:
             const pendingTasks = tasks.filter(task => !task.completed);
             updateNotificationBadge('tasksBadge', pendingTasks.length);
         }
 
         function checkUpcomingShifts() {
-            // Aquí podrías implementar lógica para verificar turnos próximos y actualizar el badge
-            // Por ejemplo:
             const today = new Date();
             const upcomingShifts = shifts.filter(shift => new Date(shift.date) >= today);
             updateNotificationBadge('shiftsBadge', upcomingShifts.length);
-        }
-
-        function setupTaskListener() {
-            // Aquí podrías implementar un listener para cambios en las tareas en tiempo real
         }
 
         function loadShifts() {
@@ -642,7 +693,6 @@
                         calendar.updateSize();
                     }
                     checkUpcomingShifts();
-                    // updateShiftCheckStatus(); // Si tienes lógica para actualizar el estado de los turnos
                 })
                 .catch((error) => {
                     console.error("Error al cargar turnos:", error);
@@ -682,12 +732,20 @@
         // Evento para el botón de enviar correo
         document.getElementById('emailButton').addEventListener('click', prepareEmail);
 
+        // Evento para el checkbox de reorganización
+        document.getElementById('enableReorder').addEventListener('change', function() {
+            // Si se desactiva el modo de reorganización, limpiar selección
+            if (!isReorderModeEnabled() && firstSelectedTask) {
+                firstSelectedTask.classList.remove('selected');
+                firstSelectedTask = null;
+            }
+        });
+
         // Cargar datos al iniciar
         window.addEventListener('load', () => {
             loadWorkerTasks();
             loadShifts();
             loadAnnouncements();
-            // setupTaskListener(); // Si deseas escuchar cambios en tiempo real
         });
 
         window.addEventListener('resize', function() {
@@ -695,6 +753,7 @@
                 calendar.updateSize();
             }
         });
+
     })();
     </script>
 </body>
