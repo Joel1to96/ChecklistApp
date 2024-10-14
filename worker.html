@@ -140,6 +140,8 @@
 
         <div class="header">
             <h1>App del Restaurante</h1>
+            <!-- Añadimos el elemento con id="userName" -->
+            <span id="userName" class="ml-auto mr-3"></span>
             <button id="logoutButton" class="btn btn-danger">Cerrar Sesión</button>
         </div>
 
@@ -231,7 +233,13 @@
             window.location.href = 'login.html';
         }
         console.log('Usuario actual:', userName);
-        document.getElementById('userName').textContent = `Bienvenido, ${userName}`;
+        // Aseguramos que el elemento con id 'userName' existe antes de usarlo
+        const userNameElement = document.getElementById('userName');
+        if (userNameElement) {
+            userNameElement.textContent = `Bienvenido, ${userName}`;
+        } else {
+            console.error("El elemento con id 'userName' no existe en el DOM.");
+        }
 
         // Función para obtener el documento del usuario actual
         function getCurrentUserDoc() {
@@ -599,10 +607,17 @@
 
         function checkPendingTasks() {
             // Aquí podrías implementar lógica para verificar tareas pendientes y actualizar el badge
+            // Por ejemplo:
+            const pendingTasks = tasks.filter(task => !task.completed);
+            updateNotificationBadge('tasksBadge', pendingTasks.length);
         }
 
         function checkUpcomingShifts() {
             // Aquí podrías implementar lógica para verificar turnos próximos y actualizar el badge
+            // Por ejemplo:
+            const today = new Date();
+            const upcomingShifts = shifts.filter(shift => new Date(shift.date) >= today);
+            updateNotificationBadge('shiftsBadge', upcomingShifts.length);
         }
 
         function setupTaskListener() {
