@@ -134,6 +134,10 @@
         .fc-daygrid-event-dot {
             display: none !important;
         }
+        #workerList button,
+        #dateList button {
+            margin: 5px;
+        }
     </style>
 </head>
 <body>
@@ -173,21 +177,23 @@
             <h2>Mis Turnos</h2>
             <div id="calendar"></div>
         </div>
+
+        <!-- Sección de Historial de Tareas -->
+        <div id="completedTasksSection" class="section">
+            <h2>Historial de Tareas</h2>
+            <div id="workerList" class="mb-3"></div>
+            <div id="dateList" class="mb-3" style="display: none;"></div>
+            <div id="taskHistory" style="display: none;"></div>
+        </div>
+
     </div>
 
     <!-- Barra de navegación -->
     <nav class="nav-bar">
-        <a href="#" class="nav-item active" data-section="announcementsSection">
-            Anuncios
-        </a>
-        <a href="#" class="nav-item" data-section="tasksSection">
-            Tareas
-            <span class="notification-badge" id="tasksBadge"></span>
-        </a>
-        <a href="#" class="nav-item" data-section="shiftsSection">
-            Turnos
-            <span class="notification-badge" id="shiftsBadge"></span>
-        </a>
+        <a href="#" class="nav-item active" data-section="announcementsSection">Anuncios</a>
+        <a href="#" class="nav-item" data-section="tasksSection">Tareas<span class="notification-badge" id="tasksBadge"></span></a>
+        <a href="#" class="nav-item" data-section="shiftsSection">Turnos<span class="notification-badge" id="shiftsBadge"></span></a>
+        <a href="#" class="nav-item" data-section="completedTasksSection">Historial de Tareas</a>
     </nav>
 
     <!-- Scripts de Firebase y JavaScript -->
@@ -219,13 +225,13 @@
     (function() {
         // Configuración de Firebase (Reemplaza con tus propias credenciales)
         const firebaseConfig = {
-    apiKey: "AIzaSyD2Ro-aX_BvF4FUQDYLqNOapc_0CZIh5Qg",
-    authDomain: "reastauranteapp.firebaseapp.com",
-    projectId: "reastauranteapp",
-    storageBucket: "reastauranteapp.appspot.com",
-    messagingSenderId: "15166663435",
-    appId: "1:15166663435:web:dbd9dadcb13e83a904500e",
-        }
+            apiKey: "AIzaSyD2Ro-aX_BvF4FUQDYLqNOapc_0CZIh5Qg",
+            authDomain: "reastauranteapp.firebaseapp.com",
+            projectId: "reastauranteapp",
+            storageBucket: "reastauranteapp.appspot.com",
+            messagingSenderId: "15166663435",
+            appId: "1:15166663435:web:dbd9dadcb13e83a904500e",
+        };
 
         // Inicializar Firebase
         firebase.initializeApp(firebaseConfig);
@@ -504,92 +510,90 @@
         const defaultEmailAddresses = ["joelb.6foot@gmail.com"];
 
         function prepareEmail() {
-    const today = new Date();
-    const todayDayOfWeek = today.toLocaleDateString('es-ES', { weekday: 'long' });
-    const todayDateString = today.toISOString().split('T')[0];
+            const today = new Date();
+            const todayDayOfWeek = today.toLocaleDateString('es-ES', { weekday: 'long' });
+            const todayDateString = today.toISOString().split('T')[0];
 
-    function capitalizeFirstLetter(string) {
-        return string.charAt(0).toUpperCase() + string.slice(1);
-    }
+            function capitalizeFirstLetter(string) {
+                return string.charAt(0).toUpperCase() + string.slice(1);
+            }
 
-    const filteredTasks = tasks.filter(task => {
-        if (task.assignBy === 'dayOfWeek' && task.assignedDays) {
-            return task.assignedDays.includes(capitalizeFirstLetter(todayDayOfWeek));
-        } else if (task.assignBy === 'date' && task.assignedDate) {
-            return task.assignedDate === todayDateString;
-        } else {
-            return false;
+            const filteredTasks = tasks.filter(task => {
+                if (task.assignBy === 'dayOfWeek' && task.assignedDays) {
+                    return task.assignedDays.includes(capitalizeFirstLetter(todayDayOfWeek));
+                } else if (task.assignBy === 'date' && task.assignedDate) {
+                    return task.assignedDate === todayDateString;
+                } else {
+                    return false;
+                }
+            });
+
+            const uniqueTasks = Array.from(new Set(filteredTasks.map(task => task.id)))
+                .map(id => filteredTasks.find(task => task.id === id));
+
+            const completedTasks = uniqueTasks.filter(task => task.completed && task.completedBy === userName);
+            const incompleteTasks = uniqueTasks.filter(task => !task.completed);
+
+            console.log("Tareas completadas:", completedTasks);
+            console.log("Tareas pendientes:", incompleteTasks);
+
+            let emailBody = `Resumen de Tareas para ${userName}\n\n`;
+            emailBody += "Tareas Completadas:\n";
+            completedTasks.forEach(task => {
+                emailBody += `- ${task.text}\n`;
+            });
+            emailBody += "\nTareas Pendientes:\n";
+            incompleteTasks.forEach(task => {
+                emailBody += `- ${task.text}\n`;
+            });
+
+            // Enviar correo utilizando EmailJS
+            const templateParams = {
+                to_email: defaultEmailAddresses.join(','), // Destinatarios
+                from_name: userName,
+                subject: `Resumen de Tareas del Restaurante - ${userName}`,
+                message: emailBody
+            };
+
+            emailjs.send('service_22ka8o4', 'template_n0t17ar', templateParams)
+                .then(function(response) {
+                    console.log('Correo enviado exitosamente!', response.status, response.text);
+                    alert('Correo enviado exitosamente.');
+                
+                    // Aquí llamamos a la nueva función para guardar en Firestore
+                    saveTaskCompletionSummary(completedTasks, incompleteTasks, todayDateString);
+
+                    // Después de enviar el correo, reiniciar el estado de las tareas
+                    resetTasksCompletionStatus(uniqueTasks);
+                }, function(error) {
+                    console.error('Error al enviar el correo:', error);
+                    alert('Error al enviar el correo. Por favor, inténtalo de nuevo más tarde.');
+                });
         }
-    });
 
-    const uniqueTasks = Array.from(new Set(filteredTasks.map(task => task.id)))
-        .map(id => filteredTasks.find(task => task.id === id));
+        function saveTaskCompletionSummary(completedTasks, incompleteTasks, dateString) {
+            const summary = {
+                userName: userName,
+                date: dateString, // La fecha para la cual eran las tareas
+                timestamp: firebase.firestore.Timestamp.now(), // Marca de tiempo actual
+                completedTasks: completedTasks.map(task => ({
+                    id: task.id,
+                    text: task.text
+                })),
+                incompleteTasks: incompleteTasks.map(task => ({
+                    id: task.id,
+                    text: task.text
+                })),
+            };
 
-    const completedTasks = uniqueTasks.filter(task => task.completed && task.completedBy === userName);
-    const incompleteTasks = uniqueTasks.filter(task => !task.completed);
-
-    console.log("Tareas completadas:", completedTasks);
-    console.log("Tareas pendientes:", incompleteTasks);
-
-    let emailBody = `Resumen de Tareas para ${userName}\n\n`;
-    emailBody += "Tareas Completadas:\n";
-    completedTasks.forEach(task => {
-        emailBody += `- ${task.text}\n`;
-    });
-    emailBody += "\nTareas Pendientes:\n";
-    incompleteTasks.forEach(task => {
-        emailBody += `- ${task.text}\n`;
-    });
-
-    // Enviar correo utilizando EmailJS
-    const templateParams = {
-        to_email: defaultEmailAddresses.join(','), // Destinatarios
-        from_name: userName,
-        subject: `Resumen de Tareas del Restaurante - ${userName}`,
-        message: emailBody
-    };
-
-    emailjs.send('service_22ka8o4', 'template_n0t17ar', templateParams)
-        .then(function(response) {
-            console.log('Correo enviado exitosamente!', response.status, response.text);
-            alert('Correo enviado exitosamente.');
-            
-            // **Aquí llamamos a la nueva función para guardar en Firestore**
-            saveTaskCompletionSummary(completedTasks, incompleteTasks, todayDateString);
-
-            // Después de enviar el correo, reiniciar el estado de las tareas
-            resetTasksCompletionStatus(uniqueTasks);
-        }, function(error) {
-            console.error('Error al enviar el correo:', error);
-            alert('Error al enviar el correo. Por favor, inténtalo de nuevo más tarde.');
-        });
-}
-
-
-function saveTaskCompletionSummary(completedTasks, incompleteTasks, dateString) {
-    const summary = {
-        userName: userName,
-        date: dateString, // La fecha para la cual eran las tareas
-        timestamp: firebase.firestore.Timestamp.now(), // Marca de tiempo actual
-        completedTasks: completedTasks.map(task => ({
-            id: task.id,
-            text: task.text
-        })),
-        incompleteTasks: incompleteTasks.map(task => ({
-            id: task.id,
-            text: task.text
-        })),
-    };
-
-    db.collection('taskCompletionLogs').add(summary)
-        .then(() => {
-            console.log('Resumen de tareas guardado en Firestore');
-        })
-        .catch(error => {
-            console.error('Error al guardar el resumen de tareas:', error);
-        });
-}
-
+            db.collection('taskCompletionLogs').add(summary)
+                .then(() => {
+                    console.log('Resumen de tareas guardado en Firestore');
+                })
+                .catch(error => {
+                    console.error('Error al guardar el resumen de tareas:', error);
+                });
+        }
 
         function resetTasksCompletionStatus(tasksToReset) {
             tasksToReset.forEach(task => {
@@ -622,6 +626,12 @@ function saveTaskCompletionSummary(completedTasks, incompleteTasks, dateString) 
         }
 
         function showSection(sectionId, clickedItem) {
+            // Verificar el rol del usuario
+            if (sectionId === 'completedTasksSection' && userRole !== 'admin' && userRole !== 'gerente') {
+                alert('No tienes permiso para acceder a esta sección.');
+                return;
+            }
+
             // Ocultar todas las secciones
             document.querySelectorAll('.section').forEach(section => {
                 if (section.id === sectionId) {
@@ -637,13 +647,12 @@ function saveTaskCompletionSummary(completedTasks, incompleteTasks, dateString) 
             });
             clickedItem.classList.add('active');
 
-            // Renderizar contenido específico si es necesario
+            // Cargar contenido específico
             if (sectionId === 'tasksSection') {
                 renderTasks();
             } else if (sectionId === 'announcementsSection') {
                 renderAnnouncements();
             } else if (sectionId === 'shiftsSection') {
-                // Inicializar y renderizar el calendario
                 initializeCalendar();
                 if (calendar) {
                     setTimeout(() => {
@@ -651,6 +660,8 @@ function saveTaskCompletionSummary(completedTasks, incompleteTasks, dateString) 
                         calendar.render();
                     }, 0);
                 }
+            } else if (sectionId === 'completedTasksSection') {
+                loadWorkerList();
             }
         }
 
@@ -747,6 +758,134 @@ function saveTaskCompletionSummary(completedTasks, incompleteTasks, dateString) 
                 });
         }
 
+        // Añade las nuevas funciones al script principal
+
+        function loadWorkerList() {
+            const workerListDiv = document.getElementById('workerList');
+            workerListDiv.innerHTML = '<p>Cargando lista de trabajadores...</p>';
+
+            db.collection('users')
+                .get()
+                .then((querySnapshot) => {
+                    const workers = [];
+                    querySnapshot.forEach((doc) => {
+                        const userData = doc.data();
+                        if (userData.role !== 'admin') { // Excluir administradores
+                            workers.push(userData);
+                        }
+                    });
+
+                    if (workers.length === 0) {
+                        workerListDiv.innerHTML = '<p>No hay trabajadores para mostrar.</p>';
+                        return;
+                    }
+
+                    workerListDiv.innerHTML = '<p>Selecciona un trabajador:</p>';
+                    workers.forEach((userData) => {
+                        const button = document.createElement('button');
+                        button.className = 'btn btn-secondary m-1';
+                        button.textContent = userData.name;
+                        button.onclick = () => {
+                            loadDateList(userData.name);
+                        };
+                        workerListDiv.appendChild(button);
+                    });
+                })
+                .catch((error) => {
+                    console.error('Error al cargar la lista de trabajadores:', error);
+                    workerListDiv.innerHTML = '<p>Error al cargar la lista de trabajadores.</p>';
+                });
+        }
+
+        function loadDateList(workerName) {
+            console.log('Cargando fechas para:', workerName);
+            const dateListDiv = document.getElementById('dateList');
+            dateListDiv.innerHTML = '<p>Cargando fechas...</p>';
+            dateListDiv.style.display = 'block';
+            document.getElementById('taskHistory').style.display = 'none';
+
+            db.collection('taskCompletionLogs')
+                .where('userName', '==', workerName)
+                .orderBy('timestamp', 'desc') // Usamos timestamp para ordenar correctamente
+                .get()
+                .then((querySnapshot) => {
+                    const dates = new Set();
+                    querySnapshot.forEach((doc) => {
+                        dates.add(doc.data().date);
+                    });
+
+                    if (dates.size === 0) {
+                        dateListDiv.innerHTML = '<p>No hay registros para este trabajador.</p>';
+                        return;
+                    }
+
+                    dateListDiv.innerHTML = '<p>Selecciona una fecha:</p>';
+                    dates.forEach((date) => {
+                        const button = document.createElement('button');
+                        button.className = 'btn btn-outline-primary m-1';
+                        button.textContent = date;
+                        button.onclick = () => {
+                            loadTaskHistory(workerName, date);
+                        };
+                        dateListDiv.appendChild(button);
+                    });
+                })
+                .catch((error) => {
+                    console.error('Error al cargar las fechas:', error);
+                    dateListDiv.innerHTML = '<p>Error al cargar las fechas.</p>';
+                });
+        }
+
+        function loadTaskHistory(workerName, date) {
+            console.log('Cargando historial de tareas para:', workerName, 'en la fecha:', date);
+            const taskHistoryDiv = document.getElementById('taskHistory');
+            taskHistoryDiv.innerHTML = '<p>Cargando tareas...</p>';
+            taskHistoryDiv.style.display = 'block';
+
+            db.collection('taskCompletionLogs')
+                .where('userName', '==', workerName)
+                .where('date', '==', date)
+                .get()
+                .then((querySnapshot) => {
+                    if (querySnapshot.empty) {
+                        taskHistoryDiv.innerHTML = '<p>No hay registros de tareas para esta fecha.</p>';
+                        return;
+                    }
+
+                    const logData = querySnapshot.docs[0].data();
+
+                    let html = `<h3>Tareas de ${workerName} el ${date}</h3>`;
+
+                    html += '<h4>Tareas Completadas:</h4>';
+                    if (logData.completedTasks.length > 0) {
+                        html += '<ul>';
+                        logData.completedTasks.forEach((task) => {
+                            html += `<li>${task.text}</li>`;
+                        });
+                        html += '</ul>';
+                    } else {
+                        html += '<p>No hay tareas completadas.</p>';
+                    }
+
+                    html += '<h4>Tareas Incompletas:</h4>';
+                    if (logData.incompleteTasks.length > 0) {
+                        html += '<ul>';
+                        logData.incompleteTasks.forEach((task) => {
+                            html += `<li>${task.text}</li>`;
+                        });
+                        html += '</ul>';
+                    } else {
+                        html += '<p>No hay tareas incompletas.</p>';
+                    }
+
+                    taskHistoryDiv.innerHTML = html;
+                })
+                .catch((error) => {
+                    console.error('Error al cargar el historial de tareas:', error);
+                    taskHistoryDiv.innerHTML = '<p>Error al cargar el historial de tareas.</p>';
+                });
+        }
+
         // Eventos de la barra de navegación
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', function(event) {
@@ -784,7 +923,7 @@ function saveTaskCompletionSummary(completedTasks, incompleteTasks, dateString) 
             }
         });
 
-    })();
+    })(); // Aquí cerramos correctamente la función autoejecutable
     </script>
 </body>
 </html>
