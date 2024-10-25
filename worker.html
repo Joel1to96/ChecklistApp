@@ -504,62 +504,92 @@
         const defaultEmailAddresses = ["joelb.6foot@gmail.com"];
 
         function prepareEmail() {
-            const today = new Date();
-            const todayDayOfWeek = today.toLocaleDateString('es-ES', { weekday: 'long' });
-            const todayDateString = today.toISOString().split('T')[0];
+    const today = new Date();
+    const todayDayOfWeek = today.toLocaleDateString('es-ES', { weekday: 'long' });
+    const todayDateString = today.toISOString().split('T')[0];
 
-            function capitalizeFirstLetter(string) {
-                return string.charAt(0).toUpperCase() + string.slice(1);
-            }
+    function capitalizeFirstLetter(string) {
+        return string.charAt(0).toUpperCase() + string.slice(1);
+    }
 
-            const filteredTasks = tasks.filter(task => {
-                if (task.assignBy === 'dayOfWeek' && task.assignedDays) {
-                    return task.assignedDays.includes(capitalizeFirstLetter(todayDayOfWeek));
-                } else if (task.assignBy === 'date' && task.assignedDate) {
-                    return task.assignedDate === todayDateString;
-                } else {
-                    return false;
-                }
-            });
-
-            const uniqueTasks = Array.from(new Set(filteredTasks.map(task => task.id)))
-                .map(id => filteredTasks.find(task => task.id === id));
-
-            const completedTasks = uniqueTasks.filter(task => task.completed && task.completedBy === userName);
-            const incompleteTasks = uniqueTasks.filter(task => !task.completed);
-
-            console.log("Tareas completadas:", completedTasks);
-            console.log("Tareas pendientes:", incompleteTasks);
-
-            let emailBody = `Resumen de Tareas para ${userName}\n\n`;
-            emailBody += "Tareas Completadas:\n";
-            completedTasks.forEach(task => {
-                emailBody += `- ${task.text}\n`;
-            });
-            emailBody += "\nTareas Pendientes:\n";
-            incompleteTasks.forEach(task => {
-                emailBody += `- ${task.text}\n`;
-            });
-
-            // Enviar correo utilizando EmailJS
-            const templateParams = {
-                to_email: defaultEmailAddresses.join(','), // Destinatarios
-                from_name: userName,
-                subject: `Resumen de Tareas del Restaurante - ${userName}`,
-                message: emailBody
-            };
-
-            emailjs.send('service_22ka8o4', 'template_n0t17ar', templateParams)
-                .then(function(response) {
-                    console.log('Correo enviado exitosamente!', response.status, response.text);
-                    alert('Correo enviado exitosamente.');
-                    // Después de enviar el correo, reiniciar el estado de las tareas
-                    resetTasksCompletionStatus(uniqueTasks);
-                }, function(error) {
-                    console.error('Error al enviar el correo:', error);
-                    alert('Error al enviar el correo. Por favor, inténtalo de nuevo más tarde.');
-                });
+    const filteredTasks = tasks.filter(task => {
+        if (task.assignBy === 'dayOfWeek' && task.assignedDays) {
+            return task.assignedDays.includes(capitalizeFirstLetter(todayDayOfWeek));
+        } else if (task.assignBy === 'date' && task.assignedDate) {
+            return task.assignedDate === todayDateString;
+        } else {
+            return false;
         }
+    });
+
+    const uniqueTasks = Array.from(new Set(filteredTasks.map(task => task.id)))
+        .map(id => filteredTasks.find(task => task.id === id));
+
+    const completedTasks = uniqueTasks.filter(task => task.completed && task.completedBy === userName);
+    const incompleteTasks = uniqueTasks.filter(task => !task.completed);
+
+    console.log("Tareas completadas:", completedTasks);
+    console.log("Tareas pendientes:", incompleteTasks);
+
+    let emailBody = `Resumen de Tareas para ${userName}\n\n`;
+    emailBody += "Tareas Completadas:\n";
+    completedTasks.forEach(task => {
+        emailBody += `- ${task.text}\n`;
+    });
+    emailBody += "\nTareas Pendientes:\n";
+    incompleteTasks.forEach(task => {
+        emailBody += `- ${task.text}\n`;
+    });
+
+    // Enviar correo utilizando EmailJS
+    const templateParams = {
+        to_email: defaultEmailAddresses.join(','), // Destinatarios
+        from_name: userName,
+        subject: `Resumen de Tareas del Restaurante - ${userName}`,
+        message: emailBody
+    };
+
+    emailjs.send('service_22ka8o4', 'template_n0t17ar', templateParams)
+        .then(function(response) {
+            console.log('Correo enviado exitosamente!', response.status, response.text);
+            alert('Correo enviado exitosamente.');
+            
+            // **Aquí llamamos a la nueva función para guardar en Firestore**
+            saveTaskCompletionSummary(completedTasks, incompleteTasks, todayDateString);
+
+            // Después de enviar el correo, reiniciar el estado de las tareas
+            resetTasksCompletionStatus(uniqueTasks);
+        }, function(error) {
+            console.error('Error al enviar el correo:', error);
+            alert('Error al enviar el correo. Por favor, inténtalo de nuevo más tarde.');
+        });
+}
+
+
+function saveTaskCompletionSummary(completedTasks, incompleteTasks, dateString) {
+    const summary = {
+        userName: userName,
+        date: dateString, // La fecha para la cual eran las tareas
+        timestamp: firebase.firestore.Timestamp.now(), // Marca de tiempo actual
+        completedTasks: completedTasks.map(task => ({
+            id: task.id,
+            text: task.text
+        })),
+        incompleteTasks: incompleteTasks.map(task => ({
+            id: task.id,
+            text: task.text
+        })),
+    };
+
+    db.collection('taskCompletionLogs').add(summary)
+        .then(() => {
+            console.log('Resumen de tareas guardado en Firestore');
+        })
+        .catch(error => {
+            console.error('Error al guardar el resumen de tareas:', error);
+        });
+}
+
 
         function resetTasksCompletionStatus(tasksToReset) {
             tasksToReset.forEach(task => {
