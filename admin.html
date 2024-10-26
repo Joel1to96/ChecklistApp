@@ -400,13 +400,13 @@
         let tasks = [];
         let shifts = [];
         let announcements = [];
+        let calendar;
         let selectedDays = [];
         let currentUserId = null;
         let currentTaskId = null;
         let taskHistoryData = []; // Variable para almacenar los datos del historial
 
-        // Inicializar el calendario
-        let calendar;
+        // Función para inicializar el calendario
         document.addEventListener('DOMContentLoaded', function() {
             var calendarEl = document.getElementById('calendar');
             calendar = new FullCalendar.Calendar(calendarEl, {
@@ -441,7 +441,19 @@
                 eventDisplay: 'block'
             });
             calendar.render();
+            loadShifts(); // Cargar los turnos al iniciar
+            loadWorkerOptions(); // Cargar la lista de trabajadores al iniciar
         });
+
+        // Función para eliminar un turno
+        function deleteShift(id) {
+            db.collection("shifts").doc(id).delete().then(() => {
+                console.log("Turno eliminado correctamente");
+                loadShifts();
+            }).catch((error) => {
+                console.error("Error al eliminar turno: ", error);
+            });
+        }
 
         // Función para mostrar notificaciones
         function showNotification(message, type='success') {
@@ -512,17 +524,22 @@
 
         // Funciones para cargar datos desde Firestore utilizando onSnapshot()
         function loadTasks() {
-            db.collection("tasks").orderBy("createdAt", "desc").limit(50).onSnapshot((querySnapshot) => {
+            db.collection("tasks").orderBy("createdAt", "desc").onSnapshot((querySnapshot) => {
                 tasks = [];
-                querySnapshot.forEach((doc) => {
-                    tasks.push({ id: doc.id, ...doc.data() });
-                });
-                renderTasks();
-            });
-        }
+            querySnapshot.forEach((doc) => {
+                tasks.push({ id: doc.id, ...doc.data() });
+        });
+        console.log('Tareas cargadas:', tasks);
+        renderTasks();
+    }, (error) => {
+        console.error('Error al cargar tareas:', error);
+    });
+}
 
+
+        // Función para cargar los turnos
         function loadShifts() {
-            db.collection("shifts").orderBy("createdAt", "desc").limit(50).onSnapshot((querySnapshot) => {
+            db.collection("shifts").get().then((querySnapshot) => {
                 shifts = [];
                 querySnapshot.forEach((doc) => {
                     shifts.push({ id: doc.id, ...doc.data() });
@@ -553,10 +570,10 @@
             });
         }
 
-        // Nueva función para cargar los trabajadores en el select
+        // Función para cargar la lista de trabajadores en el select
         function loadWorkerOptions() {
-            const workerSelect = document.getElementById('workerSelect');
-            workerSelect.innerHTML = '<option value="">Seleccionar trabajador</option>';
+            const shiftEmployeeSelect = document.getElementById('shiftEmployee');
+            shiftEmployeeSelect.innerHTML = '<option value="">Asignar a...</option>';
 
             db.collection('users').get()
                 .then((querySnapshot) => {
@@ -565,8 +582,8 @@
                         if (userData.role !== 'admin') { // Excluir administradores
                             const option = document.createElement('option');
                             option.value = userData.name;
-                            option.textContent = userData.name;
-                            workerSelect.appendChild(option);
+                            option.textContent = `${userData.name} (${userData.role})`;
+                            shiftEmployeeSelect.appendChild(option);
                         }
                     });
                 })
@@ -575,7 +592,7 @@
                 });
         }
 
-        // Función para obtener eventos de turnos
+        // Modificar la función getShiftEvents() para reflejar los cambios
         function getShiftEvents() {
             return shifts.map(shift => ({
                 id: shift.id,
@@ -585,7 +602,7 @@
                 color: getRandomColor(shift.employee),
                 allDay: false,
                 display: 'block'
-            })).filter(event => event.start && event.end);
+            })).filter(event => event.start && event.end); // Filtra eventos sin fechas válidas
         }
 
         // Función para generar un color basado en una cadena
@@ -671,38 +688,39 @@
 
         // Función para renderizar las tareas
         function renderTasks() {
-            const taskList = document.getElementById('taskList');
-            taskList.innerHTML = '';
-            tasks.forEach((task) => {
-                const li = document.createElement('li');
-                li.className = 'task-item';
-                let assignDetails = '';
-                if (task.assignBy === 'dayOfWeek') {
-                    assignDetails = `Días: ${task.assignedDays.join(', ')}`;
-                } else if (task.assignBy === 'date') {
-                    assignDetails = `Fecha: ${task.assignedDate}`;
-                }
-                li.innerHTML = `
-                    <span>${task.text} - Asignado a: ${task.assignedTo} (${assignDetails})</span>
-                    <div>
-                        <button class="btn btn-sm btn-primary edit-task-button" data-id="${task.id}">Editar</button>
-                        <button class="btn btn-sm btn-danger delete-task-button" data-id="${task.id}">Eliminar</button>
-                    </div>
-                `;
-                taskList.appendChild(li);
-            });
+    const taskList = document.getElementById('taskList');
+    taskList.innerHTML = '';
+    tasks.forEach((task) => {
+        const li = document.createElement('li');
+        li.className = 'task-item';
+        let assignDetails = '';
+        if (task.assignBy === 'dayOfWeek') {
+            assignDetails = `Días: ${task.assignedDays ? task.assignedDays.join(', ') : ''}`;
+        } else if (task.assignBy === 'date') {
+            assignDetails = `Fecha: ${task.assignedDate || ''}`;
         }
+        li.innerHTML = `
+            <span>${task.text} - Asignado a: ${task.assignedTo} (${assignDetails})</span>
+            <div>
+                <button class="btn btn-sm btn-primary edit-task-button" data-id="${task.id}">Editar</button>
+                <button class="btn btn-sm btn-danger delete-task-button" data-id="${task.id}">Eliminar</button>
+            </div>
+        `;
+        taskList.appendChild(li);
+    });
+}
+
 
         // Eventos para los botones de tareas (Delegación de eventos)
         document.getElementById('taskList').addEventListener('click', function(event) {
-            if (event.target.classList.contains('edit-task-button')) {
-                const taskId = event.target.getAttribute('data-id');
-                editTask(taskId);
-            } else if (event.target.classList.contains('delete-task-button')) {
-                const taskId = event.target.getAttribute('data-id');
-                deleteTask(taskId);
-            }
-        });
+    if (event.target.classList.contains('edit-task-button')) {
+        const taskId = event.target.getAttribute('data-id');
+        editTask(taskId);
+    } else if (event.target.classList.contains('delete-task-button')) {
+        const taskId = event.target.getAttribute('data-id');
+        deleteTask(taskId);
+    }
+});
 
         // Función para eliminar una tarea
         function deleteTask(id) {
@@ -819,7 +837,7 @@
             }
         });
 
-        // Función para añadir un turno
+        // Modificar la función addShift() para almacenar el nombre del trabajador
         function addShift() {
             const date = document.getElementById('shiftDate').value;
             const start = document.getElementById('shiftStart').value;
@@ -831,20 +849,19 @@
                     date: date,
                     start: start,
                     end: end,
-                    employee: employee,
+                    employee: employee, // Almacenamos el nombre del trabajador
                     createdAt: firebase.firestore.Timestamp.now()
                 })
                 .then((docRef) => {
                     console.log("Turno añadido con ID: ", docRef.id);
                     clearShiftInputs();
-                    showNotification('Turno añadido exitosamente');
+                    loadShifts();
                 })
                 .catch((error) => {
                     console.error("Error al añadir turno: ", error);
-                    showNotification('Error al añadir turno', 'danger');
                 });
             } else {
-                showNotification('Por favor, completa todos los campos requeridos.', 'danger');
+                alert('Por favor, completa todos los campos requeridos.');
             }
         }
 
@@ -852,10 +869,9 @@
         function deleteShift(id) {
             db.collection("shifts").doc(id).delete().then(() => {
                 console.log("Turno eliminado correctamente");
-                showNotification('Turno eliminado');
+                loadShifts();
             }).catch((error) => {
                 console.error("Error al eliminar turno: ", error);
-                showNotification('Error al eliminar turno', 'danger');
             });
         }
 
@@ -1189,7 +1205,6 @@
         document.getElementById('addAnnouncementButton').addEventListener('click', addAnnouncement);
         document.getElementById('addUserButton').addEventListener('click', addUser);
         document.getElementById('logoutButton').addEventListener('click', logout);
-        document.getElementById('clearStorageButton').addEventListener('click', clearStorage);
         document.getElementById('updateUserButton').addEventListener('click', updateUser);
         document.getElementById('cancelUserEditButton').addEventListener('click', cancelEdit);
 
