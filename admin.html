@@ -570,27 +570,38 @@
             });
         }
 
-        // Función para cargar la lista de trabajadores en el select
-        function loadWorkerOptions() {
-            const shiftEmployeeSelect = document.getElementById('shiftEmployee');
-            shiftEmployeeSelect.innerHTML = '<option value="">Asignar a...</option>';
+        // Función para cargar la lista de trabajadores en los select correspondientes
+function loadWorkerOptions() {
+    const shiftEmployeeSelect = document.getElementById('shiftEmployee');
+    const workerSelect = document.getElementById('workerSelect'); // Añadimos este elemento
+    
+    // Limpiamos los select antes de llenarlos
+    shiftEmployeeSelect.innerHTML = '<option value="">Asignar a...</option>';
+    workerSelect.innerHTML = '<option value="">Selecciona un trabajador...</option>';
 
-            db.collection('users').get()
-                .then((querySnapshot) => {
-                    querySnapshot.forEach((doc) => {
-                        const userData = doc.data();
-                        if (userData.role !== 'admin') { // Excluir administradores
-                            const option = document.createElement('option');
-                            option.value = userData.name;
-                            option.textContent = `${userData.name} (${userData.role})`;
-                            shiftEmployeeSelect.appendChild(option);
-                        }
-                    });
-                })
-                .catch((error) => {
-                    console.error('Error al cargar los trabajadores:', error);
-                });
-        }
+    db.collection('users').get()
+        .then((querySnapshot) => {
+            querySnapshot.forEach((doc) => {
+                const userData = doc.data();
+                if (userData.role !== 'admin') { // Excluir administradores
+                    // Llenar el select de empleados para los turnos
+                    const optionShift = document.createElement('option');
+                    optionShift.value = userData.name;
+                    optionShift.textContent = `${userData.name} (${userData.role})`;
+                    shiftEmployeeSelect.appendChild(optionShift);
+
+                    // Llenar el select de trabajadores para el historial de tareas
+                    const optionWorker = document.createElement('option');
+                    optionWorker.value = userData.name;
+                    optionWorker.textContent = `${userData.name} (${userData.role})`;
+                    workerSelect.appendChild(optionWorker);
+                }
+            });
+        })
+        .catch((error) => {
+            console.error('Error al cargar los trabajadores:', error);
+        });
+}
 
         // Modificar la función getShiftEvents() para reflejar los cambios
         function getShiftEvents() {
