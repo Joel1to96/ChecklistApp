@@ -163,6 +163,24 @@
         .hidden {
             display: none;
         }
+
+        /* Estilos para la sección de Neveras */
+        .image-upload {
+    margin-bottom: 20px;
+}
+
+.image-upload input[type="file"] {
+    display: inline-block;
+    margin-right: 10px;
+}
+
+.current-image img {
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+
+
     </style>
 </head>
 <body>
@@ -318,7 +336,17 @@
             <div id="taskHistoryResults" style="margin-top: 20px;"></div>
         </div>
 
+           <!-- Sección de Neveras -->
+<div id="fridgesSection" class="section">
+    <h2>Distribución de Neveras</h2>
+    <p>A continuación se muestra la imagen con la distribución de las neveras.</p>
+    <div class="current-image">
+        <img id="currentFridgeImage" src="Photo-8.jpg" alt="Distribución de Neveras" style="max-width: 100%; height: auto;">
     </div>
+</div>
+
+        
+    
 
     <!-- Formulario para editar usuario -->
     <div id="editUserSection" style="display: none;">
@@ -357,6 +385,10 @@
         <a href="#" class="nav-item" data-section="taskHistorySection">
             Historial de Tareas
         </a>
+        <a href="#" class="nav-item" data-section="fridgesSection">
+            Neveras
+        </a>
+        
     </nav>
 
     <!-- Scripts de Firebase y JavaScript -->
@@ -391,6 +423,7 @@
         
         // Inicializar Firebase
         firebase.initializeApp(firebaseConfig);
+
         
         // Inicializar Firestore
         const db = firebase.firestore();
@@ -444,15 +477,6 @@
             loadWorkerOptions(); // Cargar la lista de trabajadores al iniciar
         });
 
-        // Función para eliminar un turno
-        function deleteShift(id) {
-            db.collection("shifts").doc(id).delete().then(() => {
-                console.log("Turno eliminado correctamente");
-                loadShifts();
-            }).catch((error) => {
-                console.error("Error al eliminar turno: ", error);
-            });
-        }
 
         // Función para mostrar notificaciones
         function showNotification(message, type='success') {
@@ -1239,7 +1263,14 @@
             document.querySelectorAll('.section').forEach(section => section.classList.remove('active'));
             document.getElementById('announcementsSection').classList.add('active');
         });
+
+
+
+
+
+
     })();
     </script>
+    
 </body>
 </html>
