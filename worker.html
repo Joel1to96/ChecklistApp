@@ -134,6 +134,15 @@
         .fc-daygrid-event-dot {
             display: none !important;
         }
+        /* Estilos para las temperaturas de las neveras */
+        .fridge-temperatures-input {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .fridge-temperatures-input .form-group {
+            flex: 1 1 45%;
+        }
     </style>
 </head>
 <body>
@@ -165,6 +174,39 @@
                 </label>
             </div>
             <div id="taskGrid" class="task-grid"></div>
+
+            <!-- Sección para registrar las temperaturas de las neveras -->
+            <div id="fridgeTemperaturesSection">
+                <h2>Registro de Temperaturas de Neveras</h2>
+                <p>Por favor, ingresa las temperaturas de las neveras:</p>
+                <div class="fridge-temperatures-input">
+                    <div class="form-group">
+                        <label for="fridge1Temperature">Nevera 1:</label>
+                        <input type="number" id="fridge1Temperature" class="form-control" placeholder="Temperatura en °C">
+                    </div>
+                    <div class="form-group">
+                        <label for="fridge2Temperature">Nevera 2:</label>
+                        <input type="number" id="fridge2Temperature" class="form-control" placeholder="Temperatura en °C">
+                    </div>
+                    <div class="form-group">
+                        <label for="fridge3Temperature">Nevera 3:</label>
+                        <input type="number" id="fridge3Temperature" class="form-control" placeholder="Temperatura en °C">
+                    </div>
+                    <div class="form-group">
+                        <label for="fridge4Temperature">Nevera 4:</label>
+                        <input type="number" id="fridge4Temperature" class="form-control" placeholder="Temperatura en °C">
+                    </div>
+                    <div class="form-group">
+                        <label for="fridge5Temperature">Nevera 5:</label>
+                        <input type="number" id="fridge5Temperature" class="form-control" placeholder="Temperatura en °C">
+                    </div>
+                    <div class="form-group">
+                        <label for="fridge6Temperature">Nevera 6:</label>
+                        <input type="number" id="fridge6Temperature" class="form-control" placeholder="Temperatura en °C">
+                    </div>
+                </div>
+            </div>
+
             <button id="emailButton" class="btn btn-primary">Enviar Resumen por Correo</button>
         </div>
 
@@ -172,6 +214,15 @@
         <div id="shiftsSection" class="section">
             <h2>Mis Turnos</h2>
             <div id="calendar"></div>
+        </div>
+
+        <!-- Sección de Neveras -->
+        <div id="fridgesSection" class="section">
+            <h2>Distribución de Neveras</h2>
+            <p>A continuación se muestra la imagen con la distribución de las neveras.</p>
+            <div class="current-image">
+                <img id="currentFridgeImage" src="Photo-8.jpg" alt="Distribución de Neveras" style="max-width: 100%; height: auto;">
+            </div>
         </div>
     </div>
 
@@ -187,6 +238,9 @@
         <a href="#" class="nav-item" data-section="shiftsSection">
             Turnos
             <span class="notification-badge" id="shiftsBadge"></span>
+        </a>
+        <a href="#" class="nav-item" data-section="fridgesSection">
+            Neveras
         </a>
     </nav>
 
@@ -210,7 +264,7 @@
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <script type="text/javascript">
         (function(){
-            emailjs.init("IEL6hz3L7WAoJ9dRx"); // Reemplaza TU_CLAVE_PUBLICA con tu clave pública de EmailJS
+            emailjs.init("IEL6hz3L7WAoJ9dRx"); // Reemplaza con tu clave pública de EmailJS
         })();
     </script>
 
@@ -225,7 +279,7 @@
             storageBucket: "reastauranteapp.appspot.com",
             messagingSenderId: "15166663435",
             appId: "1:15166663435:web:dbd9dadcb13e83a904500e",
-        }
+        };
 
         // Inicializar Firebase
         firebase.initializeApp(firebaseConfig);
@@ -561,6 +615,17 @@
             console.log("Tareas completadas:", completedTasks);
             console.log("Tareas pendientes:", incompleteTasks);
 
+            // Validar que todas las temperaturas estén ingresadas
+            const fridgeTemperatures = {};
+            for (let i = 1; i <= 6; i++) {
+                const temp = document.getElementById(`fridge${i}Temperature`).value;
+                if (temp === '') {
+                    alert(`Por favor, ingresa la temperatura de la Nevera ${i}.`);
+                    return;
+                }
+                fridgeTemperatures[`fridge${i}`] = temp;
+            }
+
             let emailBody = `Resumen de Tareas para ${userName}\n\n`;
             emailBody += "Tareas Completadas:\n";
             completedTasks.forEach(task => {
@@ -570,6 +635,11 @@
             incompleteTasks.forEach(task => {
                 emailBody += `- ${task.text}\n`;
             });
+            emailBody += "\nTemperaturas de Neveras:\n";
+            for (let i = 1; i <= 6; i++) {
+                const temp = fridgeTemperatures[`fridge${i}`];
+                emailBody += `- Nevera ${i}: ${temp} °C\n`;
+            }
 
             // Enviar correo utilizando EmailJS
             const templateParams = {
@@ -584,18 +654,21 @@
                     console.log('Correo enviado exitosamente!', response.status, response.text);
                     alert('Correo enviado exitosamente.');
                     
-                    // **Aquí llamamos a la nueva función para guardar en Firestore**
-                    saveTaskCompletionSummary(completedTasks, incompleteTasks, todayDateString);
+                    // Guardar en Firestore el resumen de tareas y temperaturas
+                    saveTaskCompletionSummary(completedTasks, incompleteTasks, todayDateString, fridgeTemperatures);
 
                     // Después de enviar el correo, reiniciar el estado de las tareas
                     resetTasksCompletionStatus(uniqueTasks);
+
+                    // Reiniciar las temperaturas
+                    resetFridgeTemperatures();
                 }, function(error) {
                     console.error('Error al enviar el correo:', error);
                     alert('Error al enviar el correo. Por favor, inténtalo de nuevo más tarde.');
                 });
         }
 
-        function saveTaskCompletionSummary(completedTasks, incompleteTasks, dateString) {
+        function saveTaskCompletionSummary(completedTasks, incompleteTasks, dateString, fridgeTemperatures) {
             const summary = {
                 userName: userName,
                 date: dateString, // La fecha para la cual eran las tareas
@@ -608,6 +681,7 @@
                     id: task.id,
                     text: task.text
                 })),
+                fridgeTemperatures: fridgeTemperatures
             };
 
             db.collection('taskCompletionLogs').add(summary)
@@ -617,6 +691,12 @@
                 .catch(error => {
                     console.error('Error al guardar el resumen de tareas:', error);
                 });
+        }
+
+        function resetFridgeTemperatures() {
+            for (let i = 1; i <= 6; i++) {
+                document.getElementById(`fridge${i}Temperature`).value = '';
+            }
         }
 
         function resetTasksCompletionStatus(tasksToReset) {
