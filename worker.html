@@ -151,16 +151,86 @@
         --accent: #e74c3c;
         }
 
-        .sidebar {
-        width: 200px;
-        height: 100vh;
-        background-color: #3498db;
-        position: fixed;
-        left: 0;
-        top: 0;
-        padding: 20px;
-        color: white;
+        /* Estilos para el botón "Menu" */
+        .menu-button {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 1001; /* Asegura que esté por encima del contenido */
         }
+
+        .menu-button button {
+            padding: 10px 20px;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #3498db; /* Color del botón */
+        }
+        
+        /* Estilos para la barra lateral */
+        .sidebar {
+            height: 100vh;
+            background-color: var(--primary);
+            position: fixed;
+            left: -240px; /* Oculta la barra lateral fuera de la pantalla */
+            top: 0;
+            padding: 20px;
+            color: white;
+            transition: left 0.3s ease-in-out;
+            z-index: 1000; /* Asegura que esté por encima del contenido principal pero debajo del botón "Menu" */
+            overflow-y: auto; /* Añade scroll si el contenido excede la altura */
+            width: 240px; /* Ancho total de la barra lateral */
+        }
+
+        /* Muestra la barra lateral cuando tiene la clase 'visible' */
+        .sidebar.visible {
+            left: 0;
+        }
+        
+        /* Estilos para el logo en la barra lateral */
+        .sidebar .logo {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            text-align: center;
+        }
+        
+        .sidebar .logo img {
+            max-width: 100%;
+            height: auto;
+            cursor: pointer;
+        }
+
+        /* Estilos para que el logo siempre sea visible */
+        #logoImage {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 1001;
+            max-width: 200px;
+            cursor: pointer;
+        }
+
+        /* Oculta el logo cuando la barra lateral está visible */
+        .sidebar.visible ~ #logoImage {
+            display: none;
+        }
+
+        /* Asegurar que el contenido principal no se vea afectado */
+        .main-content {
+            margin: 0;
+            padding: 20px;
+        }
+
+        /* Evita que el contenido principal tenga posición relativa o z-index que interfiera */
+        .main-content {
+            z-index: 0;
+            position: relative;
+        }
+
+
 
         .logo {
             text-align: center;
@@ -175,7 +245,7 @@
         }
 
         .nav-menu {
-            margin-top: 30px;
+            margin-top: 60px;
         }
 
         .nav-item {
@@ -204,10 +274,11 @@
         }
 
         .main-content {
-            margin-left: 240px;
+            margin-left: 0; /* Sin margen cuando la barra lateral está oculta */
             padding: 20px;
-            width: calc(100% - 240px);
         }
+
+           
 
         .header {
             background-color: white;
@@ -328,16 +399,24 @@
         .logo {
             padding: 0px 0;
         }
+        }   
+
+        #nombreapp{
+            text-align: center;
         }
     </style>
 </head>
 <body>
+
+    <!-- Botón "Menu" que siempre es visible en la parte superior -->
+    <div id="menuButton" class="menu-button">
+        <button>Menu</button>
+    </div>
+
+
     <!-- Barra de navegación -->
     <div class="sidebar">
-       <div class="logo">
-           <img id="currentFridgeImage" src="Chicken cruncher logo print-01.png" alt="Distribución de Neveras" style="max-width: 150px; height: auto;">
-           
-       </div>
+       
        <div class="nav-menu">
            <div class="nav-item active" data-section="announcementsSection">
                <svg viewBox="0 0 24 24">
@@ -365,6 +444,10 @@
            </div>
            
        </div>
+
+        <div class="logo">
+            <img id="logoImage" src="Chicken cruncher logo print-01.png" alt="Logo" style="max-width: 150px; height: auto; cursor: pointer;">
+        </div>
    </div>
 
    <div class="main-content">
@@ -373,12 +456,14 @@
         <!-- Área de notificaciones -->
         <div id="notification" class="alert" style="display: none;"></div>
 
-        <div class="header">
-            <h1>App del Restaurante</h1>
-            <!-- Añadimos el elemento con id="userName" -->
-            <span id="userName" class="ml-auto mr-3"></span>
-            <button id="logoutButton" class="btn btn-danger">Cerrar Sesión</button>
-        </div>
+        <!-- Encabezado con el logo fuera de la barra lateral -->
+<div class="header">
+    <!-- Logo que siempre es visible -->
+    
+    <h1 id="nombreapp"></h1>
+    <span id="userName" class="ml-auto mr-3"></span>
+    <button id="logoutButton" class="btn btn-danger">Cerrar Sesión</button>
+</div>
 
         <!-- Sección de Anuncios -->
         <div id="announcementsSection" class="section active">
@@ -1103,5 +1188,46 @@
 
     })();
     </script>
+
+        <!-- Añade este script antes de cerrar el </body> -->
+        <script>
+        // Seleccionar elementos
+        const logo = document.getElementById('logoImage');
+        const sidebar = document.querySelector('.sidebar');
+        const menuButton = document.getElementById('menuButton');
+        
+        // Función para mostrar/ocultar la barra lateral
+        function showSidebar() {
+            sidebar.classList.add('visible');
+        }
+        
+        function hideSidebar() {
+            sidebar.classList.remove('visible');
+        }
+        
+        // Eventos para mostrar la barra lateral al hacer clic en el logo o en el botón "Menu"
+        logo.addEventListener('click', (e) => {
+            e.stopPropagation(); // Evita que el evento se propague al documento
+            showSidebar();
+        });
+        
+        menuButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showSidebar();
+        });
+        
+        // Evento para ocultar la barra lateral al hacer clic fuera de ella
+        document.addEventListener('click', (e) => {
+            if (!sidebar.contains(e.target) && sidebar.classList.contains('visible')) {
+                hideSidebar();
+            }
+        });
+        
+        // Evita que los clics dentro de la barra lateral la oculten
+        sidebar.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+    </script>
+
 </body>
 </html>
